@@ -6,6 +6,7 @@ export type ChallengeType =
   | 'typing_rescue'
   | 'terminal_nav'
   | 'file_ops'
+  | 'pipes_streams'
   | 'permissions'
   | 'text_manipulation'
   | 'process_mgmt'

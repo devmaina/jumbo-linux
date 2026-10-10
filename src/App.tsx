@@ -15,6 +15,7 @@ import { FolderMazeGame } from './components/FolderMazeGame';
 import { PermissionLockpickGame } from './components/PermissionLockpickGame';
 import { ProcessZapperGame } from './components/ProcessZapperGame';
 import { PipeConductorGame } from './components/PipeConductorGame';
+import { RetroCliGame } from './components/RetroCliGame';
 import { BadgesModal } from './components/BadgesModal';
 import { RealtimeLeaderboard } from './components/RealtimeLeaderboard';
 import { KeyboardLesson } from './components/KeyboardLesson';
@@ -62,7 +63,7 @@ const DEFAULT_STUDENT: StudentProfile = {
   difficulty: 'beginner'
 };
 
-export type ArcadeGame = 'match' | 'falling' | 'duels' | 'maze' | 'lockpick' | 'zapper' | 'pipe';
+export type ArcadeGame = 'match' | 'falling' | 'duels' | 'maze' | 'lockpick' | 'zapper' | 'pipe' | 'retro';
 
 const ARCADE_GAMES: { id: ArcadeGame; name: string; icon: string }[] = [
   { id: 'match', name: 'Matcher', icon: '🧩' },
@@ -71,7 +72,8 @@ const ARCADE_GAMES: { id: ArcadeGame; name: string; icon: string }[] = [
   { id: 'maze', name: 'Maze', icon: '📁' },
   { id: 'lockpick', name: 'Lockpick', icon: '⚡' },
   { id: 'zapper', name: 'Zapper', icon: '🦝' },
-  { id: 'pipe', name: 'Pipes', icon: '🎯' }
+  { id: 'pipe', name: 'Pipes', icon: '🎯' },
+  { id: 'retro', name: 'Retro', icon: '🕹️' }
 ];
 
 export function App() {
@@ -452,6 +454,13 @@ export function App() {
             {arcadeGameTab === 'pipe' && (
               <PipeConductorGame
                 onEarnXp={(earned) => updateProgress(p => ({ ...p, xp: p.xp + earned }))}
+              />
+            )}
+
+            {arcadeGameTab === 'retro' && (
+              <RetroCliGame
+                onEarnXp={(earned) => updateProgress(p => ({ ...p, xp: p.xp + earned }))}
+                onBackToMissions={() => setCurrentTab('learning')}
               />
             )}
           </div>

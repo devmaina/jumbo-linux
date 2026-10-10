@@ -121,72 +121,80 @@ export const LEVELS: LevelInfo[] = [
   },
   {
     levelNumber: 4,
-    title: 'Arcade Genesis: Drop Catch & Single Shot',
-    subtitle: 'Game 1: Drop Catch & Game 2: Single Shot',
+    title: 'Filesystem Architect: Folders & Blueprints',
+    subtitle: 'Building Structures: mkdir -p, touch, file & tree',
     grade: '4th - 5th Grade',
     gradeBand: 'middle',
-    iconName: 'Gamepad2',
+    iconName: 'FolderPlus',
     color: 'sky',
-    mascotTip: 'Students can play and create terminal mini-games right from the start! Launch your games using ./games/ script or the game runner.',
-    story: 'Time for the terminal arcade! In Drop Catch, maneuver your basket to catch falling stars. In Single Shot, lock your laser onto target drones with precise timing.',
+    mascotTip: 'Every great builder plans their folders! Use "mkdir -p" to craft nested directories, "touch" to create empty files, and "file" to discover what kind of data lives inside.',
+    story: 'Time to become a Linux system architect! You have been granted a blank workspace. Build your robotics workshop with nested folders using mkdir -p, forge new blueprint files with touch, and inspect file formats with the file utility.',
     theory: [
-      '"./games/drop-catch.sh" or "game drop-catch": Launch Drop Catch arcade game.',
-      '"./games/single-shot.sh" or "game single-shot": Launch Single Shot precision target game.',
-      'Shell scripts can animate loops, redraw characters, and accept realtime inputs.'
+      '"mkdir -p lab/gadgets": Creates parent and child directories in a single command.',
+      '"touch lab/gadgets/laser.txt": Generates a brand new file with current timestamps.',
+      '"file lab/gadgets/laser.txt": Detects whether a file contains plain ASCII text, binary code, or media.',
+      '"tree lab": Displays your newly crafted folder architecture in full branches.'
     ],
-    type: 'arcade',
-    suggestedPills: ['game drop-catch', 'game single-shot', 'ls games'],
+    type: 'file_ops',
+    suggestedPills: ['mkdir -p lab/gadgets', 'touch lab/gadgets/laser.txt', 'file lab/gadgets/laser.txt', 'tree lab'],
     objectives: [
       {
         id: 'obj_4_1',
-        description: 'Launch Game 1 (Drop Catch): type "game drop-catch" and press Enter!',
-        targetCheck: 'game_drop_catch',
-        hint: 'Type "game drop-catch" or "./games/drop-catch.sh"!'
+        description: 'Construct nested folders: type "mkdir -p lab/gadgets" and press Enter!',
+        targetCheck: 'mkdir',
+        hint: 'Type "mkdir -p lab/gadgets" and press Enter!'
       },
       {
         id: 'obj_4_2',
-        description: 'Launch Game 2 (Single Shot): type "game single-shot" and press Enter!',
-        targetCheck: 'game_single_shot',
-        hint: 'Type "game single-shot" or "./games/single-shot.sh"!'
+        description: 'Craft a blueprint file: type "touch lab/gadgets/laser.txt" and press Enter!',
+        targetCheck: 'touch',
+        hint: 'Type "touch lab/gadgets/laser.txt" and press Enter!'
+      },
+      {
+        id: 'obj_4_3',
+        description: 'Inspect the file type: type "file lab/gadgets/laser.txt" and press Enter!',
+        targetCheck: 'file',
+        hint: 'Type "file lab/gadgets/laser.txt" and press Enter!'
       }
     ],
     xpReward: 180
   },
   {
     levelNumber: 5,
-    title: 'Defense & Reflex Games',
-    subtitle: 'Game 3: Missile Defense, Game 4: Letter Bomb & Game 5: Left/Right Bomb',
+    title: 'The Magic Pipes & Redirection: Data Streams',
+    subtitle: 'Connecting Tools: >, >>, | and wc -l',
     grade: '5th - 6th Grade',
     gradeBand: 'middle',
-    iconName: 'Shield',
+    iconName: 'Workflow',
     color: 'teal',
-    mascotTip: 'Test your reflexes with multi-directional defense, rapid typing, and bomb defusal!',
-    story: 'Protect the Linux command station! Intercept incoming missiles, defuse ticking letter bombs by typing words quickly, and evade explosive traps with left/right maneuvers.',
+    mascotTip: 'The Unix philosophy: Write small tools that do one thing well, and connect them together with the pipe "|" and output arrows ">" and ">>" like LEGO bricks!',
+    story: 'Welcome to the magic stream station! In Linux, you do not need huge monolithic programs. Instead, you send output into files with > and >>, and channel data straight from one tool into another with the pipe | operator.',
     theory: [
-      '"game missile-defense": Defend the city grid against falling ICBM meteors.',
-      '"game letter-bomb": Type the sequence before the fuse burns down to 0.',
-      '"game left-right-bomb": Dodge incoming hazards left and right across the terminal.'
+      '"echo \'Star Alpha\' > star.txt": Redirects output to create or overwrite a file.',
+      '"echo \'Star Beta\' >> star.txt": Appends new lines to the bottom of the file without overwriting.',
+      '"cat star.txt | wc -l": Streams the file into the word/line counter to tally entries.',
+      '"cat animals.txt | grep Penguin | wc -l": Chains multiple commands together in a powerful pipeline.'
     ],
-    type: 'arcade',
-    suggestedPills: ['game missile-defense', 'game letter-bomb', 'game left-right-bomb'],
+    type: 'pipes_streams',
+    suggestedPills: ['echo "Star Alpha" > star.txt', 'echo "Star Beta" >> star.txt', 'cat star.txt | wc -l', 'cat star.txt'],
     objectives: [
       {
         id: 'obj_5_1',
-        description: 'Play Game 3 (Missile Defense): type "game missile-defense" and press Enter!',
-        targetCheck: 'game_missile_defense',
-        hint: 'Type "game missile-defense" and press Enter!'
+        description: 'Redirect text to a new file: type "echo \\"Star Alpha\\" > star.txt" and press Enter!',
+        targetCheck: 'redirection',
+        hint: 'Type "echo \\"Star Alpha\\" > star.txt" and press Enter!'
       },
       {
         id: 'obj_5_2',
-        description: 'Play Game 4 (Letter Bomb): type "game letter-bomb" and press Enter!',
-        targetCheck: 'game_letter_bomb',
-        hint: 'Type "game letter-bomb" and press Enter!'
+        description: 'Append another entry: type "echo \\"Star Beta\\" >> star.txt" and press Enter!',
+        targetCheck: 'redirect_append',
+        hint: 'Type "echo \\"Star Beta\\" >> star.txt" and press Enter!'
       },
       {
         id: 'obj_5_3',
-        description: 'Play Game 5 (Left/Right Bomb): type "game left-right-bomb" and press Enter!',
-        targetCheck: 'game_left_right_bomb',
-        hint: 'Type "game left-right-bomb" and press Enter!'
+        description: 'Count items using a pipe: type "cat star.txt | wc -l" and press Enter!',
+        targetCheck: 'wc',
+        hint: 'Type "cat star.txt | wc -l" and press Enter!'
       }
     ],
     xpReward: 200
@@ -503,18 +511,18 @@ export const BADGES: Badge[] = [
     color: 'bg-amber-500'
   },
   {
-    id: 'arcade_creator',
-    title: 'Arcade Genesis',
-    description: 'Created and launched Drop Catch and Single Shot terminal mini-games.',
-    icon: 'Gamepad2',
+    id: 'filesystem_architect',
+    title: 'Filesystem Architect',
+    description: 'Engineered nested directory trees and created files with mkdir -p, touch & file!',
+    icon: 'FolderPlus',
     levelRequired: 4,
     color: 'bg-sky-500'
   },
   {
-    id: 'defense_commander',
-    title: 'Reflex Defender',
-    description: 'Mastered Missile Defense, Letter Bomb, and Left/Right Bomb games.',
-    icon: 'Shield',
+    id: 'stream_sorcerer',
+    title: 'Pipeline Sorcerer',
+    description: 'Mastered Unix output redirection (>, >>) and chained commands with pipes (|)!',
+    icon: 'Workflow',
     levelRequired: 5,
     color: 'bg-teal-500'
   },

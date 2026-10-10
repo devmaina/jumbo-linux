@@ -144,21 +144,28 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
 
-          {/* User Account Profile Pic Icon Button */}
+          {/* User Account Button: Icon-only profile pic on mobile alone, expanded name + avatar on desktop */}
           <button
             onClick={onOpenAuthModal}
             title={currentStudent ? `${currentStudent.name} • Profile & Settings` : "Profile & Login"}
-            className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-amber-200 to-amber-100 border-2 border-amber-400 hover:border-amber-500 shadow-xs hover:shadow active:scale-95 transition-all cursor-pointer shrink-0"
+            className="relative flex items-center justify-center sm:justify-start w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1 rounded-full sm:rounded-xl bg-gradient-to-tr from-amber-200 to-amber-100 hover:from-amber-300 hover:to-amber-200 border-2 border-amber-400 hover:border-amber-500 shadow-xs hover:shadow active:scale-95 transition-all cursor-pointer shrink-0"
             aria-label="Profile and Settings"
           >
-            {currentStudent?.avatar ? (
-              <span className="text-xs sm:text-sm select-none leading-none">{currentStudent.avatar}</span>
-            ) : (
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-800" />
-            )}
+            <div className="flex items-center justify-center shrink-0">
+              {currentStudent?.avatar ? (
+                <span className="text-xs sm:text-sm select-none leading-none">{currentStudent.avatar}</span>
+              ) : (
+                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-800" />
+              )}
+            </div>
+            {/* Desktop Only: Student Name & Chevron */}
+            <span className="hidden sm:inline font-black text-xs text-amber-950 truncate max-w-[110px] ml-1.5">
+              {currentStudent?.name || "Sign In"}
+            </span>
+            <ChevronDown className="hidden sm:inline w-3 h-3 text-amber-700 ml-0.5 shrink-0" />
             {/* Green active status indicator if logged in */}
             {currentStudent && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 border border-white rounded-full" />
+              <span className="absolute -bottom-0.5 -right-0.5 sm:bottom-0.5 sm:right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 border border-white rounded-full" />
             )}
           </button>
         </div>

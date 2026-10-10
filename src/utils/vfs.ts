@@ -500,66 +500,119 @@ Tip: Press [Tab] for command hints or click the Quick Pills below!`;
 
     case 'mkdir': {
       eventsTriggered.push('mkdir');
-      if (!args[0]) {
+      const isP = args.includes('-p');
+      const dirArg = args.find(a => !a.startsWith('-'));
+      if (!dirArg) {
         return {
           result: { output: 'mkdir: missing operand', type: 'error', eventsTriggered },
           nextState
         };
       }
-      const dirName = args[0];
-      const parentNode = getNodeAtPath(nextState.root, nextState.currentPath);
-      if (parentNode && parentNode.children) {
-        parentNode.children[dirName] = {
-          name: dirName,
-          type: 'directory',
-          permissions: 'rwxr-xr-x',
-          owner: 'jumbo',
-          size: 4096,
-          children: {}
-        };
-        if (dirName === 'projects') {
-          eventsTriggered.push('mkdir_projects');
+      const targetPath = resolvePath(nextState.currentPath, dirArg);
+      const parts = targetPath.split('/').filter(Boolean);
+      let curr = nextState.root;
+      for (let i = 0; i < parts.length; i++) {
+        const seg = parts[i];
+        if (!curr.children) curr.children = {};
+        if (!curr.children[seg]) {
+          if (i < parts.length - 1 && !isP) {
+            return {
+              result: { output: `mkdir: cannot create directory '${dirArg}': No such file or directory`, type: 'error', eventsTriggered },
+              nextState
+            };
+          }
+          curr.children[seg] = {
+            name: seg,
+            type: 'directory',
+            permissions: 'rwxr-xr-x',
+            owner: 'jumbo',
+            size: 4096,
+            children: {}
+          };
         }
-        return {
-          result: { output: `📁 Created directory '${dirName}'`, type: 'success', eventsTriggered },
-          nextState
-        };
+        curr = curr.children[seg];
+      }
+      if (dirArg.includes('lab') || dirArg.includes('gadgets') || dirArg.includes('projects')) {
+        eventsTriggered.push('mkdir_lab');
       }
       return {
-        result: { output: 'mkdir: failed to create directory', type: 'error', eventsTriggered },
+        result: { output: `📁 Created directory '${dirArg}'`, type: 'success', eventsTriggered },
         nextState
       };
     }
 
     case 'touch': {
       eventsTriggered.push('touch');
-      if (!args[0]) {
+      const fileArg = args.find(a => !a.startsWith('-'));
+      if (!fileArg) {
         return {
           result: { output: 'touch: missing file operand', type: 'error', eventsTriggered },
           nextState
         };
       }
-      const fileName = args[0];
-      const parentNode = getNodeAtPath(nextState.root, nextState.currentPath);
+      const targetPath = resolvePath(nextState.currentPath, fileArg);
+      const lastSlash = targetPath.lastIndexOf('/');
+      const parentPath = targetPath.slice(0, lastSlash) || '/';
+      const fileName = targetPath.slice(lastSlash + 1);
+      const parentNode = getNodeAtPath(nextState.root, parentPath);
       if (parentNode && parentNode.children) {
-        parentNode.children[fileName] = {
-          name: fileName,
-          type: 'file',
-          permissions: 'rw-r--r--',
-          owner: 'jumbo',
-          size: 0,
-          content: ''
-        };
-        if (fileName === 'ideas.txt') {
+        if (!parentNode.children[fileName]) {
+          parentNode.children[fileName] = {
+            name: fileName,
+            type: 'file',
+            permissions: 'rw-r--r--',
+            owner: 'jumbo',
+            size: 0,
+            content: ''
+          };
+        }
+        if (fileArg.includes('laser.txt') || fileArg.includes('blueprint') || fileArg.includes('ideas.txt')) {
+          eventsTriggered.push('touch_laser');
           eventsTriggered.push('touch_ideas');
         }
         return {
-          result: { output: `📄 Created file '${fileName}'`, type: 'success', eventsTriggered },
+          result: { output: `📄 Created file '${fileArg}'`, type: 'success', eventsTriggered },
           nextState
         };
       }
       return {
-        result: { output: 'touch: failed to create file', type: 'error', eventsTriggered },
+        result: { output: `touch: cannot touch '${fileArg}': No such file or directory`, type: 'error', eventsTriggered },
+        nextState
+      };
+    }
+
+    case 'file': {
+      eventsTriggered.push('file');
+      const targetName = args.find(a => !a.startsWith('-')) || '';
+      if (!targetName) {
+        return {
+          result: { output: 'file: missing argument', type: 'error', eventsTriggered },
+          nextState
+        };
+      }
+      const target = resolvePath(nextState.currentPath, targetName);
+      const node = getNodeAtPath(nextState.root, target);
+      if (!node) {
+        return {
+          result: { output: `file: cannot open '${targetName}': No such file or directory`, type: 'error', eventsTriggered },
+          nextState
+        };
+      }
+      if (node.type === 'directory') {
+        return {
+          result: { output: `${targetName}: directory`, type: 'output', eventsTriggered },
+          nextState
+        };
+      }
+      const content = node.content || '';
+      let fileTypeDesc = 'ASCII text';
+      if (targetName.endsWith('.sh') || content.startsWith('#!')) fileTypeDesc = 'POSIX shell script text executable';
+      else if (targetName.endsWith('.png') || targetName.endsWith('.jpg')) fileTypeDesc = 'PNG image data, 320 x 320, 8-bit/color RGBA';
+      else if (targetName.endsWith('.mp3')) fileTypeDesc = 'Audio file with ID3 version 2.4.0, MP3';
+      else if (targetName.endsWith('.tar.gz')) fileTypeDesc = 'gzip compressed data, POSIX tar archive';
+      else if (targetName.endsWith('.py')) fileTypeDesc = 'Python script text executable';
+      return {
+        result: { output: `${targetName}: ${fileTypeDesc}`, type: 'output', eventsTriggered },
         nextState
       };
     }
@@ -1762,25 +1815,44 @@ function handlePipedCommand(raw: string, originalState: VFSState, nextState: VFS
 }
 
 function handleRedirection(raw: string, originalState: VFSState, nextState: VFSState): { result: ExecResult; nextState: VFSState } {
-  const [left, right] = raw.split('>').map(s => s.trim());
+  const isAppend = raw.includes('>>');
+  const separator = isAppend ? '>>' : '>';
+  const [left, right] = raw.split(separator).map(s => s.trim());
   const leftRes = executeCommand(left, originalState);
   const fileName = right;
 
-  const parentNode = getNodeAtPath(nextState.root, nextState.currentPath);
+  const target = resolvePath(nextState.currentPath, fileName);
+  const lastSlash = target.lastIndexOf('/');
+  const dirPath = target.slice(0, lastSlash) || '/';
+  const baseName = target.slice(lastSlash + 1);
+  const parentNode = getNodeAtPath(nextState.root, dirPath);
+
   if (parentNode?.children) {
-    parentNode.children[fileName] = {
-      name: fileName,
+    const existing = (isAppend && parentNode.children[baseName]?.content)
+      ? (parentNode.children[baseName].content + '\n')
+      : '';
+    const newContent = existing + leftRes.result.output;
+    parentNode.children[baseName] = {
+      name: baseName,
       type: 'file',
       permissions: 'rw-r--r--',
       owner: 'jumbo',
-      size: leftRes.result.output.length,
-      content: leftRes.result.output
+      size: newContent.length,
+      content: newContent
     };
+    const eventsTriggered = [
+      'redirection',
+      isAppend ? 'redirect_append' : 'redirect_write',
+      ...leftRes.result.eventsTriggered
+    ];
+    if (fileName.includes('star.txt') || baseName === 'star.txt') {
+      eventsTriggered.push('redirect_star');
+    }
     return {
       result: {
-        output: `✍️ Written output to file '${fileName}'`,
+        output: isAppend ? `📥 Appended output to '${baseName}'` : `✍️ Written output to '${baseName}'`,
         type: 'success',
-        eventsTriggered: ['redirection', ...leftRes.result.eventsTriggered]
+        eventsTriggered
       },
       nextState
     };
