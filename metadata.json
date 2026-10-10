@@ -1,0 +1,6 @@
+{
+  "name": "Jumbo-Linux-Kids",
+  "description": "Gamified, interactive K-12 Linux learning web app with simulated terminals, guided missions, and progressive Levels 1 to 12.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

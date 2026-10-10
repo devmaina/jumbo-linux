@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "Student": {
+      "collection": "students",
+      "fields": {
+        "id": { "type": "string", "description": "Unique student identifier" },
+        "name": { "type": "string", "description": "Student display name" },
+        "email": { "type": "string", "description": "Built-in student email or parent email" },
+        "authType": { "type": "string", "description": "built_in_email, parent_gmail, or no_email" },
+        "pin": { "type": "string", "description": "4-character PIN" },
+        "school": { "type": "string", "description": "School name" },
+        "dreamCareer": { "type": "string", "description": "What the student wants to be when they grow up" },
+        "grade": { "type": "string", "description": "Grade level" },
+        "avatar": { "type": "string", "description": "Mascot or avatar emoji" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "lastActiveAt": { "type": "string", "description": "Last active timestamp" },
+        "progress": { "type": "object", "description": "Student learning progress, XP, completed tasks" }
+      }
+    }
+  }
+}
