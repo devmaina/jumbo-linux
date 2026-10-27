@@ -12,6 +12,39 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+      // Gracefully prevent injected browser extension errors (e.g. MetaMask, web3 wallets, adblockers) from disrupting the app
+      (function () {
+        function isExtensionError(err, msg, file) {
+          var errorStr = String(msg || (err && (err.message || err.reason)) || err || '');
+          var sourceStr = String(file || (err && (err.filename || (err.reason && err.reason.stack) || err.stack)) || '');
+          return (
+            errorStr.indexOf('MetaMask') !== -1 ||
+            errorStr.indexOf('metamask') !== -1 ||
+            sourceStr.indexOf('chrome-extension://') !== -1 ||
+            sourceStr.indexOf('moz-extension://') !== -1 ||
+            sourceStr.indexOf('safari-extension://') !== -1 ||
+            sourceStr.indexOf('inpage.js') !== -1
+          );
+        }
+
+        window.addEventListener('error', function (e) {
+          if (isExtensionError(e.error || e, e.message, e.filename)) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (e) {
+          if (isExtensionError(e.reason, e.reason && e.reason.message, e.reason && e.reason.stack)) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body class="bg-[#f8f9fa] text-slate-900 font-['Nunito',sans-serif] antialiased selection:bg-[#FBBC05] selection:text-black">
     <div id="root"></div>

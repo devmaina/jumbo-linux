@@ -28,7 +28,7 @@ const LOCAL_STUDENTS_KEY = 'jumbo_linux_kids_students_records';
 export const STARTER_STUDENTS: StudentProfile[] = [
   {
     id: 'student_starter_1',
-    name: 'Tux_SuperSpeed',
+    name: 'Tux',
     email: 'tux@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -53,7 +53,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_2',
-    name: 'Jumbo_Explorer',
+    name: 'Jumbo',
     email: 'jumbo@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -78,7 +78,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_3',
-    name: 'Linus_Junior',
+    name: 'Linus',
     email: 'linus@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -103,7 +103,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_4',
-    name: 'CommandNinja99',
+    name: 'Ninja',
     email: 'ninja@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -128,7 +128,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_5',
-    name: 'ChromebookRanger',
+    name: 'Ranger',
     email: 'ranger@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -153,8 +153,8 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_6',
-    name: 'RootPrincess',
-    email: 'princess@jumbolinux.kids',
+    name: 'Root',
+    email: 'root@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
     school: 'Royal Oak Elementary',
@@ -178,7 +178,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_7',
-    name: 'PipesGuru',
+    name: 'Pipes',
     email: 'pipes@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -203,7 +203,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_8',
-    name: 'TerminalFox',
+    name: 'Fox',
     email: 'fox@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -228,7 +228,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_9',
-    name: 'StarCoder_Maya',
+    name: 'Maya',
     email: 'maya@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',
@@ -253,7 +253,7 @@ export const STARTER_STUDENTS: StudentProfile[] = [
   },
   {
     id: 'student_starter_10',
-    name: 'BashPanda',
+    name: 'Panda',
     email: 'panda@jumbolinux.kids',
     authType: 'built_in_email',
     pin: '1234',

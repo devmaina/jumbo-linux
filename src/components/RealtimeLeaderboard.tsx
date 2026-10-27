@@ -275,7 +275,7 @@ export const RealtimeLeaderboard: React.FC<RealtimeLeaderboardProps> = ({
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-black text-slate-900 font-['Fredoka',sans-serif] tracking-tight truncate max-w-[150px] sm:max-w-[200px]">
-                              {student.name}
+                              {student.name.toLowerCase() === 'mainadev' ? 'mainadev' : student.name.slice(0, 7)}
                             </span>
                             {isCurrentUser && (
                               <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase tracking-wider">
@@ -336,7 +336,7 @@ export const RealtimeLeaderboard: React.FC<RealtimeLeaderboardProps> = ({
               <div>
                 <div className="flex items-center gap-1.5 justify-center sm:justify-start">
                   <span className="text-xs font-black uppercase text-indigo-950">Your Standing:</span>
-                  <span className="font-black text-slate-900">{currentStudent.name}</span>
+                  <span className="font-black text-slate-900">{currentStudent.name.toLowerCase() === 'mainadev' ? 'mainadev' : currentStudent.name.slice(0, 7)}</span>
                 </div>
                 <div className="text-xs text-slate-600 font-medium">
                   Currently at <span className="font-bold text-indigo-700 font-mono">{userXp} XP</span> • Streak: <span className="font-bold text-orange-600">{currentStudent.progress.streakDays || 1}d</span>

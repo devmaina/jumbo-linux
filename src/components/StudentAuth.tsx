@@ -89,7 +89,7 @@ export const StudentAuth: React.FC<StudentAuthProps> = ({
     }
   }, [activeTab]);
 
-  const cleanEmailUser = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'explorer';
+  const cleanEmailUser = name.trim().toLowerCase().slice(0, 7).replace(/[^a-z0-9]/g, '') || 'maina';
   const jumboEmailPreview = `${cleanEmailUser}@jumbolinux.kids`;
 
   // Save Settings (Change PIN, Name, Mascot)
@@ -98,9 +98,9 @@ export const StudentAuth: React.FC<StudentAuthProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const cleanName = settingsName.trim();
+    const cleanName = settingsName.trim().slice(0, 7);
     if (!cleanName) {
-      setErrorMsg('Please enter your name');
+      setErrorMsg('Please enter your name (max 7 chars)');
       return;
     }
 
@@ -140,9 +140,9 @@ export const StudentAuth: React.FC<StudentAuthProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const cleanName = name.trim();
+    const cleanName = name.trim().slice(0, 7);
     if (!cleanName) {
-      setErrorMsg('Enter your name');
+      setErrorMsg('Enter your name (max 7 chars)');
       return;
     }
 
@@ -458,14 +458,18 @@ export const StudentAuth: React.FC<StudentAuthProps> = ({
 
             {/* Change Name */}
             <div>
-              <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">
-                Change Name:
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-black uppercase text-slate-600">
+                  Change Name:
+                </label>
+                <span className="text-[10px] font-mono text-slate-400">Max 7 chars</span>
+              </div>
               <input
                 type="text"
                 value={settingsName}
-                onChange={(e) => setSettingsName(e.target.value)}
-                placeholder="Your Name"
+                onChange={(e) => setSettingsName(e.target.value.slice(0, 7))}
+                maxLength={7}
+                placeholder="e.g. Maya"
                 required
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               />
@@ -630,14 +634,18 @@ export const StudentAuth: React.FC<StudentAuthProps> = ({
 
             {/* Name */}
             <div>
-              <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">
-                Your Name:
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-black uppercase text-slate-600">
+                  Your Name:
+                </label>
+                <span className="text-[10px] font-mono text-slate-400">Max 7 chars</span>
+              </div>
               <input
                 ref={nameInputRef}
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setName(e.target.value.slice(0, 7))}
+                maxLength={7}
                 placeholder="e.g. Maya"
                 required
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"

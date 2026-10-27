@@ -160,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             {/* Desktop Only: Student Name & Chevron */}
             <span className="hidden sm:inline font-black text-xs text-amber-950 truncate max-w-[110px] ml-1.5">
-              {currentStudent?.name || "Sign In"}
+              {currentStudent?.name ? (currentStudent.name.toLowerCase() === 'mainadev' ? 'mainadev' : currentStudent.name.slice(0, 7)) : "Sign In"}
             </span>
             <ChevronDown className="hidden sm:inline w-3 h-3 text-amber-700 ml-0.5 shrink-0" />
             {/* Green active status indicator if logged in */}

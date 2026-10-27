@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Terminal, Send, HelpCircle, CornerDownLeft, Sparkles, Copy, Check, Volume2, VolumeX, Target } from 'lucide-react';
 import { TerminalOutputItem, LevelInfo } from '../types';
 import { VFSState, executeCommand, computeTabCompletion } from '../utils/vfs';
@@ -141,8 +141,12 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   levels = [],
   onToggleReveal
 }) => {
-  const displayUserEmail = studentEmail || vfsState.currentEmail || 'student@jumbolinux.kids';
-  const effectiveBannerTitle = bannerTitle || `bash - ${displayUserEmail}:~`;
+  const promptName = useMemo(() => {
+    const raw = studentName || (studentEmail ? studentEmail.split('@')[0] : '') || vfsState.currentUser || 'mainadev';
+    if (raw.toLowerCase() === 'mainadev') return 'mainadev';
+    return raw.slice(0, 7);
+  }, [studentName, studentEmail, vfsState.currentUser]);
+  const effectiveBannerTitle = bannerTitle || `bash - ${promptName}`;
   const [inputVal, setInputVal] = useState('');
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [hasClickedTerminal, setHasClickedTerminal] = useState(isTerminalClicked);
@@ -163,8 +167,16 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   const [tabSuggestions, setTabSuggestions] = useState<string[]>([]);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const outputContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-resize textarea height as content expands or wraps
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${Math.max(22, inputRef.current.scrollHeight)}px`;
+    }
+  }, [inputVal]);
 
   useEffect(() => {
     if (isTerminalClicked) {
@@ -260,7 +272,9 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   };
 
   const handleRunCommand = (commandToRun?: string) => {
-    const cmd = (commandToRun !== undefined ? commandToRun : inputVal).trim();
+    const raw = commandToRun !== undefined ? commandToRun : inputVal;
+    // Normalize multi-line test inputs (e.g. from Shift+Enter testing) into clean command
+    const cmd = raw.replace(/\r\n/g, '\n').split('\n').map(s => s.trim()).filter(Boolean).join(' ').trim();
     if (!cmd) return;
 
     // Check manual typing
@@ -556,7 +570,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Detect real typing
     if (
       e.key !== 'Enter' &&
@@ -572,8 +586,8 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       setKeystrokeCount(prev => prev + 1);
     }
 
-    // Arrow Up / Down for command history
-    if (e.key === 'ArrowUp') {
+    // Arrow Up / Down for command history (only when not holding Shift)
+    if (e.key === 'ArrowUp' && !e.shiftKey) {
       e.preventDefault();
       const hist = vfsState.history;
       if (hist.length > 0) {
@@ -581,7 +595,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
         setHistoryIndex(nextIdx);
         setInputVal(hist[nextIdx]);
       }
-    } else if (e.key === 'ArrowDown') {
+    } else if (e.key === 'ArrowDown' && !e.shiftKey) {
       e.preventDefault();
       const hist = vfsState.history;
       if (historyIndex !== -1) {
@@ -614,6 +628,10 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       e.preventDefault();
       setOutputItems([]);
     } else if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        // Shift+Enter: Allow native newline insertion to test text wrapping down to next line
+        return;
+      }
       e.preventDefault();
       handleRunCommand();
     }
@@ -743,14 +761,10 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       >
         {outputItems.map((item, idx) => {
           if (item.type === 'command') {
-            const path = (item.path || vfsState.currentPath).replace(/^\/home\/jumbo/, '~');
             return (
-              <div key={item.id} className="flex items-start gap-2 text-xs sm:text-sm font-bold">
-                <span className="text-[#34A853] shrink-0 font-bold">{displayUserEmail}</span>
-                <span className="text-slate-400">:</span>
-                <span className="text-[#4285F4] shrink-0 font-bold">{path}</span>
-                <span className="text-[#FBBC05] font-bold">$</span>
-                <span className="text-white break-all font-bold">{item.text}</span>
+              <div key={item.id} className="flex items-start gap-1.5 text-xs sm:text-sm font-bold w-full break-words">
+                <span className="text-[#34A853] shrink-0 font-bold select-none">{promptName}</span>
+                <span className="text-white break-words whitespace-pre-wrap font-bold flex-1 min-w-0">{item.text}</span>
               </div>
             );
           }
@@ -758,7 +772,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
           return (
             <div 
               key={item.id} 
-              className={`text-xs sm:text-sm whitespace-pre-wrap leading-relaxed relative group pl-3 border-l-2 font-medium ${
+              className={`text-xs sm:text-sm whitespace-pre-wrap leading-relaxed relative group pl-3 border-l-2 font-medium break-words ${
                 item.type === 'error'
                   ? 'border-red-500 text-red-300 bg-red-950/30 py-1.5 rounded-r-lg'
                   : item.type === 'success'
@@ -811,26 +825,23 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
           </div>
         )}
 
-        {/* Live Prompt Line with Blinking Cursor and slight color transition background */}
+        {/* Live Prompt Line with Auto-wrapping and Shift+Enter support */}
         <div 
           onClick={triggerTerminalFocus}
-          className="flex items-center gap-2 text-xs sm:text-sm pt-2 cursor-pointer"
+          className="flex items-start gap-1.5 text-xs sm:text-sm pt-2 cursor-pointer w-full"
         >
-          <span className="text-[#34A853] shrink-0 font-bold">{displayUserEmail}</span>
-          <span className="text-slate-400">:</span>
-          <span className="text-[#4285F4] shrink-0 font-bold">{displayPromptPath}</span>
-          <span className="text-[#FBBC05] font-bold">$</span>
+          <span className="text-[#34A853] shrink-0 font-bold select-none mt-1 sm:mt-1.5">{promptName}</span>
 
           <div 
             onClick={(e) => {
               e.stopPropagation();
               triggerTerminalFocus();
             }}
-            className="flex-1 relative flex items-center px-3 py-1.5 rounded-xl border transition-all cursor-text animate-input-blink-dark text-white border-blue-500/50 bg-slate-900/40"
+            className="flex-1 min-w-0 relative flex items-start px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border transition-all cursor-text animate-input-blink-dark text-white border-blue-500/50 bg-slate-900/40"
           >
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
+              rows={1}
               value={inputVal}
               onChange={(e) => {
                 setInputVal(e.target.value);
@@ -842,18 +853,18 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
               spellCheck={false}
               autoCapitalize="none"
               autoCorrect="off"
-              className="w-full bg-transparent border-none outline-none text-white font-['JetBrains_Mono',monospace] font-bold text-xs sm:text-sm placeholder:text-slate-400 truncate"
-              style={{ caretColor: '#34A853' }}
+              className="w-full bg-transparent border-none outline-none text-white font-['JetBrains_Mono',monospace] font-bold text-xs sm:text-sm placeholder:text-slate-400 resize-none overflow-hidden whitespace-pre-wrap break-words leading-relaxed p-0 m-0"
+              style={{ caretColor: '#34A853', minHeight: '1.4rem' }}
             />
             {/* Blinking block cursor INSIDE the input field */}
-            <span className="w-2.5 h-4 bg-[#34A853] animate-blink inline-block shrink-0 rounded-xs ml-1 shadow-xs" />
+            <span className="w-2 h-3.5 sm:w-2.5 sm:h-4 bg-[#34A853] animate-blink inline-block shrink-0 rounded-xs ml-1 shadow-xs mt-0.5 sm:mt-1" />
           </div>
 
           <button
             onClick={() => handleRunCommand()}
             disabled={!inputVal.trim()}
-            className="p-2 rounded-xl bg-[#4285F4] hover:bg-blue-600 disabled:opacity-40 text-white transition-all border border-blue-500 active:scale-95 cursor-pointer"
-            title="Execute (Enter)"
+            className="p-2 rounded-xl bg-[#4285F4] hover:bg-blue-600 disabled:opacity-40 text-white transition-all border border-blue-500 active:scale-95 cursor-pointer shrink-0 mt-0.5"
+            title="Execute (Enter) • Shift+Enter to wrap"
           >
             <Send className="w-3.5 h-3.5" />
           </button>
@@ -890,7 +901,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
           <span className="text-slate-400">STUDENT:</span>
           <span className="text-white flex items-center gap-1 font-extrabold uppercase">
             <span>{studentAvatar || '🐧'}</span>
-            <span className="text-emerald-400">{studentName || 'Explorer'}</span>
+            <span className="text-emerald-400">{promptName}</span>
           </span>
         </div>
 

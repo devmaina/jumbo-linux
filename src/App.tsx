@@ -36,13 +36,13 @@ const ACTIVE_STUDENT_STORAGE_KEY = 'jumbo_linux_kids_active_student_v3';
 
 const DEFAULT_STUDENT: StudentProfile = {
   id: 'student_default',
-  name: 'Explorer',
+  name: 'mainadev',
   authType: 'built_in_email',
-  email: 'explorer@jumbo.local',
-  avatar: '🐘',
+  email: 'mainadev@jumbolinux.kids',
+  avatar: '🐧',
   pin: '1234',
   school: 'Junior Academy',
-  dreamCareer: '🚀 Astronaut',
+  dreamCareer: '🚀 Terminal Hacker',
   grade: 'Elementary',
   createdAt: new Date().toISOString(),
   lastActiveAt: new Date().toISOString(),
@@ -83,8 +83,10 @@ export function App() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && parsed.name) {
+          const formattedName = parsed.name.toLowerCase() === 'mainadev' ? 'mainadev' : parsed.name.slice(0, 7);
           return {
             ...parsed,
+            name: formattedName,
             progress: recordActiveDayStreak(parsed.progress || DEFAULT_STUDENT.progress)
           };
         }
