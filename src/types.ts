@@ -19,8 +19,22 @@ export interface Objective {
   id: string;
   description: string;
   commandPattern?: string; // regex or exact command match
-  completed: boolean;
+  completed?: boolean;
   hint: string;
+  targetCheck?: string;
+  commandToType?: string;
+  instruction?: string;
+  why?: string;
+  followUpDone?: string;
+}
+
+export interface CapstoneProject {
+  title: string;
+  scenario: string;
+  learningTakeaway: string;
+  command: string;
+  targetCheck: string;
+  bonusXp: number;
 }
 
 export interface LevelInfo {
@@ -42,7 +56,13 @@ export interface LevelInfo {
     description: string;
     targetCheck: string; // verification identifier
     hint: string;
+    completed?: boolean;
+    commandToType?: string;
+    instruction?: string;
+    why?: string;
+    followUpDone?: string;
   }[];
+  capstone?: CapstoneProject;
   xpReward: number;
 }
 
@@ -54,7 +74,7 @@ export interface Badge {
   levelRequired?: number;
   category?: 'curriculum' | 'arcade' | 'milestone';
   unlockedAt?: string;
-  color: string;
+  color?: string;
 }
 
 export interface UserProgress {
@@ -93,9 +113,10 @@ export interface LeaderboardEntry {
   rank: number;
   name: string;
   avatar: string;
-  level: number;
+  level?: number;
   xp: number;
-  badgeCount: number;
+  badgeCount?: number;
+  badgesCount?: number;
   isCurrentUser?: boolean;
 }
 

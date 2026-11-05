@@ -154,6 +154,10 @@ export const PipeConductorGame: React.FC<PipeConductorGameProps> = ({
       soundEffects.playLevelComplete();
       confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
       if (onEarnXp) onEarnXp(rewardXp);
+      // Auto-advance to next pipeline puzzle after scoring right
+      setTimeout(() => {
+        handleNextMission();
+      }, 1500);
     } else {
       soundEffects.playTabCompletion();
       setCurrentOutput(['(Pipeline mismatch: try different pipes!)']);

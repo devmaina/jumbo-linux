@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Terminal, Send, HelpCircle, CornerDownLeft, Sparkles, Copy, Check, Volume2, VolumeX, Target } from 'lucide-react';
+import { Terminal, Send, HelpCircle, CornerDownLeft, Sparkles, Copy, Check, Volume2, VolumeX, Target, History } from 'lucide-react';
 import { TerminalOutputItem, LevelInfo } from '../types';
 import { VFSState, executeCommand, computeTabCompletion } from '../utils/vfs';
 import { isSoundEnabled, toggleSound, playTabCompletionSound } from '../utils/sound';
@@ -44,13 +44,19 @@ const CURATED_OBJECTIVE_PLACEHOLDERS: Record<string, string> = {
   obj_3_1: 'Type "tree" to map folders',
   obj_3_2: 'Type "cowsay Linux is awesome" to make cow speak',
   obj_3_3: 'Type "fortune" for a kid-friendly quote',
-  // Level 4: Arcade Genesis
-  obj_4_1: 'Type "game drop-catch" to launch falling stars game',
-  obj_4_2: 'Type "game single-shot" to launch laser target game',
-  // Level 5: Defense & Reflex
-  obj_5_1: 'Type "game missile-defense" to intercept missiles',
-  obj_5_2: 'Type "game letter-bomb" to defuse letter bombs',
-  obj_5_3: 'Type "game left-right-bomb" to dodge bomb traps',
+
+  // Level 4: Terminal Power Keys: Shortcuts & History
+  obj_4_1: 'Type "history" to review previous commands',
+  obj_4_2: 'Type "alias ll=\'ls -l\'" to create a shortcut nickname',
+  obj_4_3: 'Type "alias" to display registered shortcuts',
+  obj_4_capstone: 'Type "alias cls=\'clear\'" to test custom shortcut',
+
+  // Level 5: Linux Ecosystem & System Architecture
+  obj_5_1: 'Type "uname -a" to inspect operating system kernel',
+  obj_5_2: 'Type "env" to view environment variables',
+  obj_5_3: 'Type "df -h" to check disk filesystem storage',
+  obj_5_capstone: 'Type "uname -r" to read the kernel release',
+
   // Level 6: Coreutils I
   obj_6_1: 'Type "pwd" to print your current folder',
   obj_6_2: 'Type "ls -l" to list files with details',
@@ -82,27 +88,37 @@ const CURATED_OBJECTIVE_PLACEHOLDERS: Record<string, string> = {
 };
 
 function getDynamicPlaceholder(
-  objective?: { id: string; description: string; targetCheck?: string; hint?: string } | null
+  objective?: {
+    id: string;
+    description: string;
+    targetCheck?: string;
+    hint?: string;
+    commandToType?: string;
+  } | null
 ): string {
   if (!objective) {
-    return 'All tasks done! Type "help" or any command...';
+    return 'All tasks done! Type "tasks" or "help"...';
+  }
+
+  // Exact clean command to type (per user request: "the place holder should just be type this")
+  if (objective.commandToType) {
+    return `Type "${objective.commandToType}"`;
+  }
+
+  // Extract from hint or description
+  const match = (objective.hint || '').match(/type\s*["']([^"']+)["']/i) ||
+                objective.description.match(/type\s*["']([^"']+)["']/i);
+  if (match) {
+    return `Type "${match[1]}"`;
   }
 
   if (CURATED_OBJECTIVE_PLACEHOLDERS[objective.id]) {
-    return `${CURATED_OBJECTIVE_PLACEHOLDERS[objective.id]}...`;
+    const curMatch = CURATED_OBJECTIVE_PLACEHOLDERS[objective.id].match(/type\s*["']([^"']+)["']/i);
+    if (curMatch) return `Type "${curMatch[1]}"`;
   }
 
-  // Fallback: extract command and action from objective description
-  const match = objective.description.match(/^(.*?):\s*type\s*["']([^"']+)["']/i);
-  if (match) {
-    const action = match[1].trim().toLowerCase();
-    const cmd = match[2].trim();
-    return `Type "${cmd}" to ${action}...`;
-  }
-
-  const hintMatch = (objective.hint || '').match(/type\s*["']([^"']+)["']/i);
-  if (hintMatch) {
-    return `Type "${hintMatch[1]}"...`;
+  if (objective.targetCheck) {
+    return `Type "${objective.targetCheck}"`;
   }
 
   return 'Type your command and press Enter...';
@@ -113,6 +129,7 @@ const LINUX_SHORTCUT_KEYS = [
   { id: 'ctrl_c', label: 'Ctrl+C', title: 'Cancel current line/command' },
   { id: 'arrow_up', label: '↑', title: 'Previous command in history' },
   { id: 'arrow_down', label: '↓', title: 'Next command in history' },
+  { id: 'history', label: 'history', title: 'Display last 13 commands run' },
   { id: 'pipe', label: '|', title: 'Pipe output to next command' },
   { id: 'slash', label: '/', title: 'Directory path slash' },
   { id: 'tilde', label: '~', title: 'Home directory (~)' },
@@ -148,12 +165,28 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   }, [studentName, studentEmail, vfsState.currentUser]);
   const effectiveBannerTitle = bannerTitle || `bash - ${promptName}`;
   const [inputVal, setInputVal] = useState('');
+
+  // Store and track last 13 commands run
+  const [commandHistory, setCommandHistory] = useState<string[]>(() => {
+    return (vfsState.history || []).slice(-13);
+  });
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [draftInput, setDraftInput] = useState<string>('');
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState<boolean>(false);
+
+  // Sync with vfsState.history if changed externally
+  useEffect(() => {
+    if (vfsState.history && vfsState.history.length > 0) {
+      setCommandHistory(vfsState.history.slice(-13));
+    }
+  }, [vfsState.history]);
+
   const [hasClickedTerminal, setHasClickedTerminal] = useState(isTerminalClicked);
   const [keystrokeCount, setKeystrokeCount] = useState(0);
   const [hasTypedManually, setHasTypedManually] = useState(false);
   const [hintSpell, setHintSpell] = useState<string | null>(null);
   const currentPendingObjective = activeLevel?.objectives.find(o => !completedObjectives.includes(o.id));
+  const lastCompletedObjective = activeLevel?.objectives.filter(o => completedObjectives.includes(o.id)).slice(-1)[0];
   const dynamicPlaceholder = getDynamicPlaceholder(currentPendingObjective);
   const [outputItems, setOutputItems] = useState<TerminalOutputItem[]>([]);
 
@@ -214,6 +247,32 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
     inputRef.current?.focus({ preventScroll: true });
   };
 
+  const navigateHistoryUp = () => {
+    if (commandHistory.length === 0) return;
+    if (historyIndex === -1) {
+      setDraftInput(inputVal);
+      const nextIdx = commandHistory.length - 1;
+      setHistoryIndex(nextIdx);
+      setInputVal(commandHistory[nextIdx]);
+    } else if (historyIndex > 0) {
+      const nextIdx = historyIndex - 1;
+      setHistoryIndex(nextIdx);
+      setInputVal(commandHistory[nextIdx]);
+    }
+  };
+
+  const navigateHistoryDown = () => {
+    if (historyIndex === -1) return;
+    if (historyIndex < commandHistory.length - 1) {
+      const nextIdx = historyIndex + 1;
+      setHistoryIndex(nextIdx);
+      setInputVal(commandHistory[nextIdx]);
+    } else {
+      setHistoryIndex(-1);
+      setInputVal(draftInput);
+    }
+  };
+
   const handleQuickKey = (keyId: string) => {
     if (keyId === 'tab') {
       handleTabCompletion();
@@ -232,27 +291,16 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       }
       setInputVal('');
       setHistoryIndex(-1);
+      setDraftInput('');
       inputRef.current?.focus({ preventScroll: true });
     } else if (keyId === 'arrow_up') {
-      const hist = vfsState.history;
-      if (hist && hist.length > 0) {
-        const nextIdx = historyIndex === -1 ? hist.length - 1 : Math.max(0, historyIndex - 1);
-        setHistoryIndex(nextIdx);
-        setInputVal(hist[nextIdx]);
-      }
+      navigateHistoryUp();
       inputRef.current?.focus({ preventScroll: true });
     } else if (keyId === 'arrow_down') {
-      const hist = vfsState.history;
-      if (hist && historyIndex !== -1) {
-        if (historyIndex < hist.length - 1) {
-          const nextIdx = historyIndex + 1;
-          setHistoryIndex(nextIdx);
-          setInputVal(hist[nextIdx]);
-        } else {
-          setHistoryIndex(-1);
-          setInputVal('');
-        }
-      }
+      navigateHistoryDown();
+      inputRef.current?.focus({ preventScroll: true });
+    } else if (keyId === 'history') {
+      setShowHistoryDrawer(prev => !prev);
       inputRef.current?.focus({ preventScroll: true });
     } else if (keyId === 'pipe') {
       appendKeyText(' | ');
@@ -280,6 +328,12 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
     // Check manual typing
     const currentKeystrokes = keystrokeCount;
     const isManual = hasTypedManually || currentKeystrokes > 0;
+
+    // Store in last 13 commands history
+    const nextHistory = [...commandHistory, cmd].slice(-13);
+    setCommandHistory(nextHistory);
+    setHistoryIndex(-1);
+    setDraftInput('');
 
     // Echo input command
     const cmdItem: TerminalOutputItem = {
@@ -534,8 +588,37 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       return;
     }
 
-    // Execute via VFS
-    const { result, nextState } = executeCommand(cmd, vfsState);
+    if (lowerCmd === 'history' || lowerCmd === 'hist') {
+      const historyOutput = nextHistory.length > 0
+        ? nextHistory.map((c, i) => `${String(i + 1).padStart(4, ' ')}  ${c}`).join('\n')
+        : 'No commands in history yet.';
+
+      setOutputItems(prev => [...prev, cmdItem, {
+        id: `out_${Date.now()}_${Math.random()}`,
+        type: 'output',
+        text: historyOutput
+      }]);
+      setInputVal('');
+      setHistoryIndex(-1);
+      setDraftInput('');
+      setKeystrokeCount(0);
+      setHasTypedManually(false);
+      setHintSpell(null);
+      setTabSuggestions([]);
+      setVfsState(prev => ({ ...prev, history: nextHistory }));
+      if (onCommandExecuted) {
+        onCommandExecuted(cmd, ['history_viewed'], {
+          clickedTerminal: hasClickedTerminal,
+          typedManually: isManual,
+          keystrokeCount: currentKeystrokes
+        });
+      }
+      return;
+    }
+
+    // Execute via VFS with updated 13-command history
+    const { result, nextState } = executeCommand(cmd, { ...vfsState, history: nextHistory });
+    nextState.history = nextHistory;
 
     // Update VFS state
     setVfsState(nextState);
@@ -586,28 +669,13 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       setKeystrokeCount(prev => prev + 1);
     }
 
-    // Arrow Up / Down for command history (only when not holding Shift)
+    // Arrow Up / Down for cycling through the last 13 commands (only when not holding Shift)
     if (e.key === 'ArrowUp' && !e.shiftKey) {
       e.preventDefault();
-      const hist = vfsState.history;
-      if (hist.length > 0) {
-        const nextIdx = historyIndex === -1 ? hist.length - 1 : Math.max(0, historyIndex - 1);
-        setHistoryIndex(nextIdx);
-        setInputVal(hist[nextIdx]);
-      }
+      navigateHistoryUp();
     } else if (e.key === 'ArrowDown' && !e.shiftKey) {
       e.preventDefault();
-      const hist = vfsState.history;
-      if (historyIndex !== -1) {
-        if (historyIndex < hist.length - 1) {
-          const nextIdx = historyIndex + 1;
-          setHistoryIndex(nextIdx);
-          setInputVal(hist[nextIdx]);
-        } else {
-          setHistoryIndex(-1);
-          setInputVal('');
-        }
-      }
+      navigateHistoryDown();
     } else if (e.key === 'Tab') {
       e.preventDefault();
       // Auto-complete suggestions
@@ -716,6 +784,21 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
+            onClick={() => setShowHistoryDrawer(prev => !prev)}
+            title="Display last 13 commands run (history)"
+            className={`px-2 sm:px-2.5 py-0.5 sm:py-1 border rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+              showHistoryDrawer
+                ? 'bg-amber-400 text-slate-950 border-amber-300 font-black'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            <History className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
+            <span className="hidden xs:inline">History</span>
+            <span className="px-1 py-0.2 rounded bg-slate-900/80 text-[9px] font-mono font-black text-amber-300">
+              {commandHistory.length}/13
+            </span>
+          </button>
+          <button
             onClick={() => setSoundOn(toggleSound())}
             title={soundOn ? 'Sound Effects Enabled (Click to Mute)' : 'Sound Effects Muted (Click to Enable)'}
             className={`p-1 sm:p-1.5 border rounded-lg text-xs cursor-pointer transition-colors ${
@@ -736,18 +819,94 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
         </div>
       </div>
 
-      {/* Current Objective Banner on Terminal (Prominently reflects current task) */}
-      {activeLevel && (
-        <div className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-slate-900/95 border-b border-slate-800/90 flex items-center justify-between gap-1.5 flex-nowrap overflow-hidden">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1">
-              <Target className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" /> Goal:
-            </span>
-            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
-              {currentPendingObjective ? currentPendingObjective.description : '🎉 All mission tasks completed!'}
-            </span>
+      {/* Expandable Display of Last 13 Commands Run */}
+      {showHistoryDrawer && (
+        <div className="px-2.5 sm:px-4 py-2 bg-slate-950/95 border-b border-slate-800/90 text-slate-200 select-none animate-in slide-in-from-top-1 duration-150 shrink-0">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300">
+                Command History (Last 13 Commands)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+                Cycle with ↑ / ↓ arrow keys
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowHistoryDrawer(false)}
+                className="text-[10px] font-bold text-slate-400 hover:text-white cursor-pointer px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700"
+              >
+                ✕ Close
+              </button>
+            </div>
           </div>
-          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-emerald-400 shrink-0">
+
+          {commandHistory.length === 0 ? (
+            <div className="text-xs text-slate-400 py-1 italic">
+              No commands run yet. Run commands in the shell to build your 13-command history!
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+              {commandHistory.map((cmdText, idx) => {
+                const isSelected = historyIndex === idx;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setInputVal(cmdText);
+                      setHistoryIndex(idx);
+                      inputRef.current?.focus({ preventScroll: true });
+                    }}
+                    title={`Click to load into terminal: "${cmdText}"`}
+                    className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer shrink-0 flex items-center gap-1 active:scale-95 ${
+                      isSelected
+                        ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-xs'
+                        : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-700/80 hover:border-amber-400/60'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black text-amber-400">#{idx + 1}</span>
+                    <span className="truncate max-w-[120px] sm:max-w-[180px]">{cmdText}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Current Objective Banner on Terminal (Prominently reflects current task instruction + why, or followUpDone) */}
+      {activeLevel && (
+        <div className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-slate-900/95 border-b border-slate-800/90 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-1.5 flex-nowrap overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+            {currentPendingObjective ? (
+              <>
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1">
+                  <Target className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" /> Goal:
+                </span>
+                <span className="text-[11px] sm:text-xs font-bold text-slate-100 truncate">
+                  {currentPendingObjective.instruction || currentPendingObjective.description}
+                </span>
+                {currentPendingObjective.why && (
+                  <span className="text-[10px] sm:text-[11px] text-amber-300/90 font-medium truncate hidden sm:inline border-l border-slate-700 pl-1.5" title={currentPendingObjective.why}>
+                    💡 Why: {currentPendingObjective.why}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1">
+                  <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400" /> Done:
+                </span>
+                <span className="text-[11px] sm:text-xs font-bold text-emerald-200 truncate">
+                  {lastCompletedObjective?.followUpDone || '🎉 All mission tasks fulfilled! Great job!'}
+                </span>
+              </>
+            )}
+          </div>
+          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-emerald-400 shrink-0 self-end xs:self-auto">
             {completedObjectives.length}/{activeLevel.objectives.length} Done
           </span>
         </div>

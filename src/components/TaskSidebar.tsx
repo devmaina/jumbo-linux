@@ -18,6 +18,7 @@ interface TaskSidebarProps {
   currentStudent?: StudentProfile | null;
   onOpenAuthModal?: () => void;
   onResetProgress?: () => void;
+  onClearLevels?: () => void;
   soundOn?: boolean;
   onToggleSound?: () => void;
 }
@@ -33,6 +34,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   currentStudent,
   onOpenAuthModal,
   onResetProgress,
+  onClearLevels,
   soundOn,
   onToggleSound
 }) => {
@@ -66,6 +68,45 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
             <X className="w-4 h-4 text-slate-700" />
           </button>
         )}
+      </div>
+
+      {/* Missions & Actions Drop Select on Left */}
+      <div className={`mb-2.5 ${isMobileDrawer ? 'px-4' : ''}`}>
+        <label htmlFor="sidebar-mission-select" className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+          Mission Dropdown & Actions:
+        </label>
+        <select
+          id="sidebar-mission-select"
+          value={currentLevelNumber}
+          onChange={(e) => {
+            if (e.target.value === 'clear_all_levels') {
+              if (window.confirm('Delete level progress and restart fresh from Level 1?')) {
+                onClearLevels?.();
+                if (onCloseMobile) onCloseMobile();
+              }
+              return;
+            }
+            onSelectTask(Number(e.target.value));
+            if (onCloseMobile) onCloseMobile();
+          }}
+          aria-label="Mission & Actions Dropdown"
+          className="w-full text-xs font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 cursor-pointer outline-none shadow-2xs"
+        >
+          <optgroup label="Select Mission">
+            {levels.map(lvl => (
+              <option key={lvl.levelNumber} value={lvl.levelNumber}>
+                {completedLevels.includes(lvl.levelNumber) ? '✅' : currentLevelNumber === lvl.levelNumber ? '👉' : '🔘'} L{lvl.levelNumber}: {lvl.title}
+              </option>
+            ))}
+          </optgroup>
+          {onClearLevels && (
+            <optgroup label="Danger Zone">
+              <option value="clear_all_levels" className="text-rose-600 font-bold bg-rose-50">
+                🔄 Clear All Levels (Restart L1)
+              </option>
+            </optgroup>
+          )}
+        </select>
       </div>
 
       {/* Step-by-Step Linux Missions List */}
@@ -192,6 +233,24 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Clear Levels */}
+        {onClearLevels && (
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Delete level progress and restart fresh from Level 1?')) {
+                onClearLevels();
+                if (onCloseMobile) onCloseMobile();
+              }
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs active:scale-95 mb-1.5"
+            title="Clear level progress to restart from Level 1"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+            <span>Clear Levels</span>
+          </button>
         )}
 
         {/* Reset Progress */}

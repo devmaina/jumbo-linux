@@ -50,12 +50,20 @@ export const RetroCliGame: React.FC<RetroCliGameProps> = ({ onEarnXp, onBackToMi
       playLevelCompleteSound();
       setScore(s => s + 60);
       onEarnXp(60);
+      setTimeout(() => {
+        setActiveGame('bomb-dodge');
+        resetGame();
+      }, 1500);
     } else if (game === 'bomb-dodge') {
       const side = action as 'left' | 'right' | 'center';
       setDodgeSide(side);
       setFeedback(`🏃 TUX DASHED ${side.toUpperCase()}! The bomb exploded harmlessly in the ditch! +40 XP`);
       setScore(s => s + 40);
       onEarnXp(40);
+      setTimeout(() => {
+        setActiveGame('drop-catch');
+        resetGame();
+      }, 1500);
     }
   };
 

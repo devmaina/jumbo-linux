@@ -139,52 +139,36 @@ export function createInitialVFS(currentUser?: string, currentEmail?: string): V
                     }
                   }
                 },
-                games: {
-                  name: 'games',
+                projects: {
+                  name: 'projects',
                   type: 'directory',
                   permissions: 'rwxr-xr-x',
                   owner: 'jumbo',
                   size: 4096,
                   children: {
-                    'drop-catch.sh': {
-                      name: 'drop-catch.sh',
+                    'telemetry.sh': {
+                      name: 'telemetry.sh',
                       type: 'file',
                       permissions: 'rwxr-xr-x',
                       owner: 'jumbo',
                       size: 240,
-                      content: '#!/bin/bash\n# 1. Drop Catch Arcade\n# Catch falling stars with your basket!\ngame drop-catch\n'
+                      content: '#!/bin/bash\n# Core System Telemetry Probe\nuname -a\ndf -h\n'
                     },
-                    'single-shot.sh': {
-                      name: 'single-shot.sh',
+                    'network_diag.sh': {
+                      name: 'network_diag.sh',
                       type: 'file',
                       permissions: 'rwxr-xr-x',
                       owner: 'jumbo',
-                      size: 240,
-                      content: '#!/bin/bash\n# 2. Single Shot Target Range\n# Aim laser cannon at rogue glitch\ngame single-shot\n'
+                      size: 220,
+                      content: '#!/bin/bash\n# Network Diagnostics\ncurl -s https://jumbolinux.kids\n'
                     },
-                    'missile-defense.sh': {
-                      name: 'missile-defense.sh',
+                    'audit_log.sh': {
+                      name: 'audit_log.sh',
                       type: 'file',
                       permissions: 'rwxr-xr-x',
                       owner: 'jumbo',
                       size: 260,
-                      content: '#!/bin/bash\n# 3. Missile Defense Base\n# Intercept asteroid cluster!\ngame missile-defense\n'
-                    },
-                    'letter-bomb.sh': {
-                      name: 'letter-bomb.sh',
-                      type: 'file',
-                      permissions: 'rwxr-xr-x',
-                      owner: 'jumbo',
-                      size: 250,
-                      content: '#!/bin/bash\n# 4. Letter Bomb Defusal\n# Defuse ticking terminal code!\ngame letter-bomb\n'
-                    },
-                    'left-right-bomb.sh': {
-                      name: 'left-right-bomb.sh',
-                      type: 'file',
-                      permissions: 'rwxr-xr-x',
-                      owner: 'jumbo',
-                      size: 250,
-                      content: '#!/bin/bash\n# 5. Left / Right Bomb Dodge\n# Dodge explosive bombs!\ngame left-right-bomb\n'
+                      content: '#!/bin/bash\n# System Resource Audit\nps aux | head -n 5\n'
                     }
                   }
                 },
@@ -282,7 +266,7 @@ export function executeCommand(rawCommand: string, state: VFSState): { result: E
     };
   }
 
-  nextState.history.push(trimmed);
+  nextState.history = [...(nextState.history || []), trimmed].slice(-13);
 
   // Check for pipes "|"
   if (trimmed.includes('|')) {
@@ -319,6 +303,40 @@ Tip: Press [Tab] for command hints or click the Quick Pills below!`;
       };
     }
 
+    case 'man': {
+      eventsTriggered.push('man');
+      eventsTriggered.push('help');
+      const target = args[0] || 'intro';
+      const manPages: Record<string, string> = {
+        pwd: 'NAME\n    pwd - print name of current/working directory\n\nSYNOPSIS\n    pwd [-L | -P]\n\nDESCRIPTION\n    Print the full filename of the current working directory.',
+        ls: 'NAME\n    ls - list directory contents\n\nSYNOPSIS\n    ls [OPTION]... [FILE]...\n\nOPTIONS\n    -a, --all    do not ignore entries starting with .\n    -l           use a long listing format',
+        cd: 'NAME\n    cd - change the shell working directory\n\nSYNOPSIS\n    cd [dir]\n\nDESCRIPTION\n    Change the current directory to dir (defaults to $HOME).',
+        echo: 'NAME\n    echo - display a line of text\n\nSYNOPSIS\n    echo [STRING]...\n\nDESCRIPTION\n    Echo the STRING(s) to standard output.'
+      };
+      const text = manPages[target] || `MANUAL PAGE: ${target.toUpperCase()}(1)\n\nDESCRIPTION:\n    Documentation for ${target}. Type '${target} --help' or 'help' for quick usage!`;
+      return {
+        result: { output: text, type: 'output', eventsTriggered },
+        nextState
+      };
+    }
+
+    case 'history': {
+      eventsTriggered.push('history');
+      eventsTriggered.push('cmd_history');
+      const hist = (nextState.history || []).slice(-13);
+      if (hist.length === 0) {
+        return {
+          result: { output: 'No commands in history yet.', type: 'system', eventsTriggered },
+          nextState
+        };
+      }
+      const output = hist.map((c, i) => `${String(i + 1).padStart(4, ' ')}  ${c}`).join('\n');
+      return {
+        result: { output, type: 'output', eventsTriggered },
+        nextState
+      };
+    }
+
     case 'whoami': {
       eventsTriggered.push('whoami');
       eventsTriggered.push('cmd_whoami');
@@ -350,7 +368,27 @@ Tip: Press [Tab] for command hints or click the Quick Pills below!`;
       if (args.includes('-a')) {
         return {
           result: {
-            output: 'Linux jumbo-chromebook 6.8.0-kids-generic #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux',
+            output: 'Linux jumbo-station 6.8.0-kids-generic #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux',
+            type: 'output',
+            eventsTriggered
+          },
+          nextState
+        };
+      }
+      if (args.includes('-r')) {
+        return {
+          result: {
+            output: '6.8.0-kids-generic',
+            type: 'output',
+            eventsTriggered
+          },
+          nextState
+        };
+      }
+      if (args.includes('-m')) {
+        return {
+          result: {
+            output: 'x86_64',
             type: 'output',
             eventsTriggered
           },
@@ -359,6 +397,142 @@ Tip: Press [Tab] for command hints or click the Quick Pills below!`;
       }
       return {
         result: { output: 'Linux', type: 'output', eventsTriggered },
+        nextState
+      };
+    }
+    case 'alias': {
+      eventsTriggered.push('alias');
+      if (args.length > 0) {
+        const fullArg = args.join(' ');
+        return {
+          result: {
+            output: `alias ${fullArg}`,
+            type: 'output',
+            eventsTriggered
+          },
+          nextState
+        };
+      }
+      return {
+        result: {
+          output: `alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)"'
+alias cls='clear'
+alias egrep='grep -E --color=auto'
+alias fgrep='grep -F --color=auto'
+alias grep='grep --color=auto'
+alias l='ls -CF'
+alias la='ls -A'
+alias ll='ls -alF'
+alias ls='ls --color=auto'`,
+          type: 'output',
+          eventsTriggered
+        },
+        nextState
+      };
+    }
+    case 'env':
+    case 'printenv': {
+      eventsTriggered.push('env');
+      const studentName = nextState.currentUser || 'explorer';
+      return {
+        result: {
+          output: `SHELL=/bin/bash
+USER=${studentName}
+HOME=/home/${studentName}
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+TERM=xterm-256color
+LANG=en_US.UTF-8
+PWD=${nextState.currentPath}
+EDITOR=nano
+OS=GNU/Linux`,
+          type: 'output',
+          eventsTriggered
+        },
+        nextState
+      };
+    }
+    case 'df': {
+      eventsTriggered.push('df');
+      if (args.includes('-h')) {
+        return {
+          result: {
+            output: `Filesystem      Size  Used Avail Use% Mounted on
+/dev/root        30G  8.4G   21G  29% /
+tmpfs           3.9G     0  3.9G   0% /dev/shm
+/dev/sda1       512M  6.1M  506M   2% /boot/efi
+/dev/sdb1        64G   12G   49G  20% /data`,
+            type: 'output',
+            eventsTriggered
+          },
+          nextState
+        };
+      }
+      return {
+        result: {
+          output: `Filesystem     1K-blocks    Used Available Use% Mounted on
+/dev/root       30349476 8808038  21541438  29% /
+tmpfs            4048896       0   4048896   0% /dev/shm
+/dev/sda1         524272    6246    518026   2% /boot/efi
+/dev/sdb1       67108864 12582912 54525952  20% /data`,
+          type: 'output',
+          eventsTriggered
+        },
+        nextState
+      };
+    }
+    case 'man': {
+      eventsTriggered.push('man');
+      const target = args[0] || 'bash';
+      const manPages: Record<string, string> = {
+        ls: `LS(1)                        User Commands                       LS(1)
+
+NAME
+       ls - list directory contents
+
+SYNOPSIS
+       ls [OPTION]... [FILE]...
+
+DESCRIPTION
+       List information about the FILEs (the current directory by default).
+
+       -a, --all
+              do not ignore entries starting with .
+
+       -l     use a long listing format
+
+       -h, --human-readable
+              with -l and -s, print sizes like 1K 234M 2G etc.`,
+        uname: `UNAME(1)                     User Commands                    UNAME(1)
+
+NAME
+       uname - print system information
+
+SYNOPSIS
+       uname [OPTION]...
+
+DESCRIPTION
+       Print certain system information.  With no OPTION, same as -s.
+
+       -a, --all
+              print all information
+
+       -r, --kernel-release
+              print the kernel release`,
+        bash: `BASH(1)                      User Commands                     BASH(1)
+
+NAME
+       bash - GNU Bourne-Again SHell
+
+DESCRIPTION
+       Bash is an sh-compatible command language interpreter that executes
+       commands read from the standard input or from a file.`
+      };
+      return {
+        result: {
+          output: manPages[target] || `MAN(1): Manual page documentation for '${target}'\nType '${target} --help' for options and usage examples.`,
+          type: 'output',
+          eventsTriggered
+        },
         nextState
       };
     }
@@ -388,6 +562,17 @@ Tip: Press [Tab] for command hints or click the Quick Pills below!`;
 
     case 'ls': {
       eventsTriggered.push('ls');
+      if (args.includes('--help')) {
+        eventsTriggered.push('help');
+        return {
+          result: {
+            output: `Usage: ls [OPTION]... [FILE]...\nList information about the FILEs (the current directory by default).\n\nOptions:\n  -a, --all                  do not ignore entries starting with .\n  -l                         use a long listing format\n  -h, --human-readable       with -l, print sizes like 1K 234M 2G\n      --help                 display this help and exit`,
+            type: 'output',
+            eventsTriggered
+          },
+          nextState
+        };
+      }
       const showAll = args.includes('-a') || args.includes('-la') || args.includes('-al');
       const showLong = args.includes('-l') || args.includes('-la') || args.includes('-al');
       if (showAll) eventsTriggered.push('ls_a');
@@ -865,7 +1050,17 @@ Tip: Press [Tab] for command hints or click the Quick Pills below!`;
 
     case 'echo': {
       eventsTriggered.push('echo');
-      const text = args.join(' ');
+      let text = args.join(' ');
+      if (text.includes('$SHELL') || text.includes('$USER') || text.includes('$HOME') || text.includes('$PATH')) {
+        eventsTriggered.push('echo_env');
+        if (text.includes('$SHELL')) eventsTriggered.push('echo_shell');
+        const sName = nextState.currentUser || 'explorer';
+        text = text
+          .replace(/\$SHELL/g, '/bin/bash')
+          .replace(/\$USER/g, sName)
+          .replace(/\$HOME/g, `/home/${sName}`)
+          .replace(/\$PATH/g, '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin');
+      }
       return {
         result: { output: text.replace(/^["']|["']$/g, ''), type: 'output', eventsTriggered },
         nextState
@@ -1443,72 +1638,6 @@ MiB Mem :   7840.2 total,   4210.5 free,   1920.8 used,   1708.9 buff/cache
       };
     }
 
-    case 'game': {
-      eventsTriggered.push('game');
-      const gameName = args[0] || '';
-      const subArg = args[1] || '';
-      return {
-        result: { output: renderGame(gameName, subArg), type: 'output', eventsTriggered },
-        nextState
-      };
-    }
-
-    case 'drop-catch':
-    case './drop-catch':
-    case './drop-catch.sh':
-    case './games/drop-catch.sh': {
-      eventsTriggered.push('game_drop_catch');
-      return {
-        result: { output: renderGame('drop-catch', args[0]), type: 'output', eventsTriggered },
-        nextState
-      };
-    }
-
-    case 'single-shot':
-    case './single-shot':
-    case './single-shot.sh':
-    case './games/single-shot.sh': {
-      eventsTriggered.push('game_single_shot');
-      return {
-        result: { output: renderGame('single-shot', args[0]), type: 'output', eventsTriggered },
-        nextState
-      };
-    }
-
-    case 'missile-defense':
-    case './missile-defense':
-    case './missile-defense.sh':
-    case './games/missile-defense.sh': {
-      eventsTriggered.push('game_missile_defense');
-      return {
-        result: { output: renderGame('missile-defense', args[0]), type: 'output', eventsTriggered },
-        nextState
-      };
-    }
-
-    case 'letter-bomb':
-    case './letter-bomb':
-    case './letter-bomb.sh':
-    case './games/letter-bomb.sh': {
-      eventsTriggered.push('game_letter_bomb');
-      return {
-        result: { output: renderGame('letter-bomb', args.join(' ')), type: 'output', eventsTriggered },
-        nextState
-      };
-    }
-
-    case 'left-right-bomb':
-    case 'bomb-dodge':
-    case './left-right-bomb':
-    case './left-right-bomb.sh':
-    case './games/left-right-bomb.sh': {
-      eventsTriggered.push('game_left_right_bomb');
-      return {
-        result: { output: renderGame('left-right-bomb', args[0]), type: 'output', eventsTriggered },
-        nextState
-      };
-    }
-
     case 'sl': {
       return {
         result: {
@@ -1605,106 +1734,6 @@ Volume: [████████████████░░░░] 80%  | Ti
 Visualizer:
  ▂ ▃ ▄ ▅ ▆ ▇ █ ▇ ▆ ▅ ▄ ▃ ▂   ▂ ▃ ▄ ▅ ▆ ▇ █ ▇ ▆ ▅ ▄ ▃ ▂
 (Simulating audio playback in terminal sandbox - Web Audio Active!)`;
-}
-
-function renderGame(name: string, action?: string): string {
-  const norm = name.toLowerCase().replace(/\.sh$/, '').replace(/^game\s*/, '').replace(/^\.\/(games\/)?/, '');
-  switch (norm) {
-    case 'drop-catch': {
-      const pos = action === 'left' ? 2 : action === 'right' ? 8 : 5;
-      const leftPad = ' '.repeat(pos);
-      return `=====================================================
-🧺 DROP CATCH ARCADE - TERMINAL MINI-GAME 🧺
-=====================================================
-Level: 1  |  Score: 120  |  Lives: ❤❤❤
-
-        ⭐ (Falling Star!)
-        |
-        v
-
-${leftPad}\\_____/   <-- [Your Shell Basket]
------------------------------------------------------
-[ROUND RESULT] ${action ? `Basket moved ${action.toUpperCase()}!` : 'Star caught cleanly! +30 PTS'}
-Controls: Type 'drop-catch left' or 'drop-catch right'!
-=====================================================`;
-    }
-    case 'single-shot': {
-      return `=====================================================
-🎯 SINGLE SHOT SNIPER - TARGET ARCADE 🎯
-=====================================================
-Target:   [ 👾 ROGUE GLITCH (PID: 404) ]
-Angle:    [ 45° ]  |  Ammo: [ | | ]
-
-              ^
-              |   <-- TUX LASER BEAM FIRED!
-              |
-          [🚀 CANNON]
-
-[DIRECT HIT] Target glitch destroyed! +50 XP!
-Type 'single-shot fire' or 'single-shot aim' to shoot!
-=====================================================`;
-    }
-    case 'missile-defense': {
-      return `=====================================================
-🛡️ MISSILE DEFENSE BASE - COMMAND TERMINAL 🛡️
-=====================================================
-Threat: ☄️ ASTEROID CLUSTER DETECTED AT SECTOR 7!
-Shields: [██████████] 100%
-
-      ☄️              ☄️              ☄️
-       \\              |              /
-        \\             |             /
-         💥 COUNTER-MEASURE LAUNCHED!
-                   [ / \\ ]
-              [🏰 JUMBO LINUX BASE]
-
-[THREAT DEFUSED] Asteroid neutralized by Linux Firewall!
-=====================================================`;
-    }
-    case 'letter-bomb': {
-      const isDefused = action?.toLowerCase().includes('cut') || action?.toLowerCase().includes('tux');
-      return `=====================================================
-💣 LETTER BOMB DEFUSAL UNIT - RAPID TYPING ⏱️
-=====================================================
-Bomb Clock: [ 00:08s REMAINING ]
-Defusal Wire: "TUX-HERO"
-
-       [💣 TICK... TICK... TICK...]
-
-${isDefused 
-  ? '✂️ SNIP! You cut the wire with code! Bomb DEFUSED! +60 XP' 
-  : 'Run: "letter-bomb cut TUX-HERO" before the timer expires!'}
-=====================================================`;
-    }
-    case 'left-right-bomb':
-    case 'bomb-dodge': {
-      const side = action === 'left' ? 'LEFT' : action === 'right' ? 'RIGHT' : 'CENTER';
-      return `=====================================================
-💥 LEFT / RIGHT BOMB DODGE RUNNER 🏃
-=====================================================
-Wave: 4  |  Bombs Dodged: 12  |  Agility: 100%
-
-     [💣 BOMB LEFT]           [💣 BOMB RIGHT]
-            \\                       /
-             \\                     /
-              [ 🐧 TUX DASHED ${side}! ]
-
-[SAFE!] The bomb exploded safely in the ditch!
-Controls: Type 'left-right-bomb left' or 'left-right-bomb right'!
-=====================================================`;
-    }
-    default: {
-      return `🎮 JUMBO LINUX TERMINAL ARCADE:
------------------------------------------------------
-1. drop-catch       - Catch falling stars with your basket!
-2. single-shot      - Target range arcade shooter!
-3. missile-defense  - Defend the Linux base against asteroids!
-4. letter-bomb      - Rapid typing bomb defusal!
-5. left-right-bomb  - Dodge falling bombs left and right!
------------------------------------------------------
-Type 'game <name>' (e.g. 'game drop-catch') or './games/<name>.sh' to play!`;
-    }
-  }
 }
 
 function handlePipedCommand(raw: string, originalState: VFSState, nextState: VFSState): { result: ExecResult; nextState: VFSState } {
@@ -1906,13 +1935,12 @@ export function getNodeAtPath(root: VFSNode, path: string): VFSNode | null {
 }
 
 export const COMMON_COMMANDS = [
-  'awk', 'bash', 'cat', 'cd', 'chafa', 'chmod', 'chown', 'clear', 'cowsay', 'cp', 
-  'curl', 'cut', 'date', 'drop-catch', 'echo', 'feh', 'figlet', 'find', 
-  'fortune', 'game', 'gcc', 'grep', 'gzip', 'head', 'help', 'history', 
-  'kill', 'left-right-bomb', 'letter-bomb', 'ls', 'missile-defense', 'mkdir', 
-  'mplayer', 'mpv', 'mv', 'nano', 'ps', 'python', 'python3', 'pwd', 'rm', 'sed', 
-  'single-shot', 'sl', 'sort', 'ssh', 'tail', 'tar', 'top', 'touch', 
-  'tr', 'tree', 'uname', 'uniq', 'wc', 'wget', 'which', 'whoami', 'xargs'
+  'alias', 'awk', 'bash', 'cat', 'cd', 'chafa', 'chmod', 'chown', 'clear', 'cowsay', 'cp', 
+  'curl', 'cut', 'date', 'df', 'echo', 'env', 'feh', 'figlet', 'find', 
+  'fortune', 'gcc', 'grep', 'gzip', 'head', 'help', 'history', 
+  'kill', 'ls', 'man', 'mkdir', 'mplayer', 'mpv', 'mv', 'nano', 'ps', 
+  'python', 'python3', 'pwd', 'rm', 'sed', 'sl', 'sort', 'ssh', 'tail', 
+  'tar', 'top', 'touch', 'tr', 'tree', 'uname', 'uniq', 'wc', 'wget', 'which', 'whoami', 'xargs'
 ];
 
 export interface TabCompletionResult {

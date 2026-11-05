@@ -181,6 +181,10 @@ export const PermissionLockpickGame: React.FC<PermissionLockpickGameProps> = ({
     soundEffects.playLevelComplete();
     confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
     if (onEarnXp) onEarnXp(40);
+    // Auto-advance to next lock after scoring right
+    setTimeout(() => {
+      handleNext();
+    }, 1500);
   };
 
   const handleNext = () => {

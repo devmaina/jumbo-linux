@@ -195,6 +195,14 @@ export const CommandMatchGame: React.FC<CommandMatchGameProps> = ({
         soundEffects.playLevelComplete();
         confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 } });
         if (onEarnXp) onEarnXp(bonusReward);
+        // Auto-advance to next round after scoring right
+        setTimeout(() => {
+          if (roundIdx + 1 < activeRounds.length) {
+            setRoundIdx(r => r + 1);
+          } else {
+            setRoundIdx(0);
+          }
+        }, 1500);
       }
     } else {
       // Wrong match

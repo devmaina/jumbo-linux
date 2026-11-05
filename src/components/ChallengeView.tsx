@@ -28,6 +28,7 @@ interface ChallengeViewProps {
   onResetMissionFiles?: () => void;
   onOpenVideos?: () => void;
   onNavigateTab?: (tab: 'keyboard' | 'gui_compare' | 'badges' | 'leaderboard') => void;
+  onClearLevels?: () => void;
 }
 
 export const ChallengeView: React.FC<ChallengeViewProps> = ({
@@ -45,7 +46,8 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
   onSelectLevel,
   onResetMissionFiles,
   onOpenVideos,
-  onNavigateTab
+  onNavigateTab,
+  onClearLevels
 }) => {
   // Step flow state: 'task' | 'victory'
   const isAlreadyFinished = progress.completedLevels.includes(level.levelNumber);
@@ -77,12 +79,36 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
     open: boolean;
     title: string;
     description: string;
+    completedTaskName?: string;
     hint?: string;
     isMissionComplete?: boolean;
+    autoSeconds?: number;
   } | null>(null);
+  const taskPopupTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const dismissPopup = () => {
+    if (taskPopupTimerRef.current) {
+      clearTimeout(taskPopupTimerRef.current);
+      taskPopupTimerRef.current = null;
+    }
+    setTaskPopup(null);
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (taskPopupTimerRef.current) {
+        clearTimeout(taskPopupTimerRef.current);
+      }
+    };
+  }, []);
 
   // Reset states on level change
   useEffect(() => {
+    if (taskPopupTimerRef.current) {
+      clearTimeout(taskPopupTimerRef.current);
+      taskPopupTimerRef.current = null;
+    }
     const isFinished = progress.completedLevels.includes(level.levelNumber);
     setHasClickedTerminal(false);
     setHasTypedCommand(false);
@@ -93,7 +119,7 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
     setIsLearnMenuOpen(false);
     setActiveStepTab('task');
     setTaskPopup(null);
-  }, [level.levelNumber]);
+  }, [level.levelNumber, progress.completedLevels]);
 
   const handleCommandExecuted = (
     cmd: string, 
@@ -121,28 +147,75 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
       const updated = [...completedObjs, ...newlyCompleted];
       setCompletedObjs(updated);
 
-      if (updated.length >= level.objectives.length && !levelFinished) {
-        setLevelFinished(true);
-        confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
-        playLevelCompleteSound();
-        onCompleteLevel(level.levelNumber, level.xpReward);
+      const completedNames = newlyCompleted
+        .map(id => level.objectives.find(o => o.id === id)?.description)
+        .filter(Boolean) as string[];
+
+      if (updated.length >= level.objectives.length) {
+        if (!levelFinished) {
+          setLevelFinished(true);
+          confetti({
+            particleCount: 140,
+            spread: 85,
+            origin: { y: 0.45 },
+            colors: ['#34A853', '#4285F4', '#FBBC05', '#EA4335', '#A855F7']
+          });
+          playLevelCompleteSound();
+          onCompleteLevel(level.levelNumber, level.xpReward);
+        }
+        if (taskPopupTimerRef.current) {
+          clearTimeout(taskPopupTimerRef.current);
+        }
         setTaskPopup({
           open: true,
-          title: `🏆 Mission ${level.levelNumber} Complete!`,
-          description: `You completed all tasks for ${level.title}! Ready for the next mission?`,
-          isMissionComplete: true
+          title: `🏆 Congratulations! Mission ${level.levelNumber} Mastered!`,
+          description: `Outstanding! You fulfilled all tasks for "${level.title}". Moving automatically to next mission...`,
+          completedTaskName: completedNames.join(' • '),
+          isMissionComplete: true,
+          autoSeconds: 2.8
         });
+        // Auto-advance automatically once user finishes all tasks
+        taskPopupTimerRef.current = setTimeout(() => {
+          setTaskPopup(null);
+          if (level.levelNumber < 12) {
+            onGoToNextLevel();
+          } else if (onBackToMap) {
+            onBackToMap();
+          }
+        }, 2800);
       } else {
+        // Single task completion: celebratory small confetti, audio, congratulation toast & auto-move to next task
+        confetti({
+          particleCount: 45,
+          spread: 60,
+          origin: { y: 0.65 },
+          colors: ['#34A853', '#4285F4', '#FBBC05', '#A855F7']
+        });
         playCommandSuccessSound();
+
+        const finishedObj = newlyCompleted
+          .map(id => level.objectives.find(o => o.id === id))
+          .filter(Boolean)[0];
+
         const nextObj = level.objectives.find(o => !updated.includes(o.id));
         if (nextObj) {
+          if (taskPopupTimerRef.current) {
+            clearTimeout(taskPopupTimerRef.current);
+          }
           setTaskPopup({
             open: true,
-            title: '🎉 Task Complete! Next Task:',
-            description: nextObj.description,
-            hint: nextObj.hint,
-            isMissionComplete: false
+            title: '🎉 Task Complete! Congratulations!',
+            description: nextObj.instruction || nextObj.description,
+            completedTaskName: finishedObj?.followUpDone || finishedObj?.instruction || completedNames[0] || 'Step accomplished!',
+            hint: nextObj.why ? `Why: ${nextObj.why}` : nextObj.hint,
+            isMissionComplete: false,
+            autoSeconds: 2.4
           });
+
+          // Auto-dismiss smoothly so the user continues seamlessly without being blocked
+          taskPopupTimerRef.current = setTimeout(() => {
+            setTaskPopup(null);
+          }, 2400);
         }
       }
     }
@@ -162,19 +235,36 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
           </span>
           <select
             value={level.levelNumber}
-            onChange={(e) => onSelectLevel?.(Number(e.target.value))}
-            aria-label="Current Level"
+            onChange={(e) => {
+              if (e.target.value === 'clear_all_levels') {
+                if (window.confirm('Delete level progress and restart fresh from Level 1?')) {
+                  onClearLevels?.();
+                }
+                return;
+              }
+              onSelectLevel?.(Number(e.target.value));
+            }}
+            aria-label="Current Level & Actions"
             className="bg-transparent border-none outline-none font-bold text-slate-800 cursor-pointer text-[10px] sm:text-xs max-w-[80px] xs:max-w-[140px] sm:max-w-[240px] truncate"
           >
-            {allLevelsList.map((lvl) => {
-              const isDone = progress.completedLevels.includes(lvl.levelNumber);
-              const isCurrent = lvl.levelNumber === level.levelNumber;
-              return (
-                <option key={lvl.levelNumber} value={lvl.levelNumber} className="text-slate-900 font-bold bg-white">
-                  {isDone ? '✅' : isCurrent ? '👉' : '🔘'} L{lvl.levelNumber}: {lvl.title}
+            <optgroup label="Select Mission">
+              {allLevelsList.map((lvl) => {
+                const isDone = progress.completedLevels.includes(lvl.levelNumber);
+                const isCurrent = lvl.levelNumber === level.levelNumber;
+                return (
+                  <option key={lvl.levelNumber} value={lvl.levelNumber} className="text-slate-900 font-bold bg-white">
+                    {isDone ? '✅' : isCurrent ? '👉' : '🔘'} L{lvl.levelNumber}: {lvl.title}
+                  </option>
+                );
+              })}
+            </optgroup>
+            {onClearLevels && (
+              <optgroup label="Actions">
+                <option value="clear_all_levels" className="text-rose-600 font-bold bg-rose-50">
+                  🔄 Clear All Levels (Restart L1)
                 </option>
-              );
-            })}
+              </optgroup>
+            )}
           </select>
         </div>
 
@@ -354,10 +444,29 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
                         setIsLearnMenuOpen(false);
                         onResetMissionFiles();
                       }}
+                      className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-amber-50 text-amber-800 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Reset Shell Virtual Drive</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 7. Clear All Levels Option in Drop List */}
+                {onClearLevels && (
+                  <div className="pt-1 mt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLearnMenuOpen(false);
+                        if (window.confirm('Delete level progress and restart fresh from Level 1?')) {
+                          onClearLevels();
+                        }
+                      }}
                       className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <RotateCcw className="w-3 h-3 text-rose-500" />
-                      <span>Reset Shell Virtual Drive</span>
+                      <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Clear All Levels (Restart L1)</span>
                     </button>
                   </div>
                 )}
@@ -433,61 +542,136 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
         </div>
       </div>
 
-      {/* Next Task Popup Modal when finished */}
+      {/* Sub-bar below levels: Active Capstone project status */}
+      {level.capstone && (
+        <div className="flex items-center justify-end px-2 sm:px-1 py-0.5 mx-1.5 sm:mx-0">
+          <button
+            type="button"
+            onClick={() => setIsRevealOpen(prev => !prev)}
+            className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-lg truncate cursor-pointer transition-colors"
+            title="Click to view Capstone Project & relative learning guide"
+          >
+            <span>🎓 Capstone:</span>
+            <span className="truncate max-w-[150px] xs:max-w-[220px] sm:max-w-[340px] font-black">{level.capstone.title}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Next Task Congratulation & Auto-Advance Popup Modal */}
       <AnimatePresence>
         {taskPopup?.open && (
           <motion.div
             initial={{ opacity: 0, y: -25, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -25, scale: 0.95 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md bg-white rounded-2xl shadow-2xl border-2 border-amber-400 p-4 font-['Nunito',sans-serif]"
+            onClick={dismissPopup}
+            className={`fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-lg rounded-2xl shadow-2xl p-4 sm:p-5 font-['Nunito',sans-serif] border-2 cursor-pointer transition-all ${
+              taskPopup.isMissionComplete
+                ? 'bg-gradient-to-br from-emerald-50 via-white to-amber-50 border-emerald-400 shadow-emerald-500/25'
+                : 'bg-gradient-to-br from-amber-50/90 via-white to-blue-50/70 border-amber-400 shadow-amber-500/20'
+            }`}
           >
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-2xl shrink-0 shadow-xs">
-                {taskPopup.isMissionComplete ? '🏆' : '✨'}
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-xs border ${
+                taskPopup.isMissionComplete
+                  ? 'bg-emerald-100 border-emerald-300'
+                  : 'bg-amber-100 border-amber-300'
+              }`}>
+                {taskPopup.isMissionComplete ? '🏆' : '🎉'}
               </div>
-              <div className="flex-1 min-w-0 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-amber-700 tracking-wider">
-                    {taskPopup.title}
-                  </span>
+              <div className="flex-1 min-w-0 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`text-[11px] sm:text-xs font-black uppercase tracking-wider ${
+                      taskPopup.isMissionComplete ? 'text-emerald-700' : 'text-amber-800'
+                    }`}>
+                      {taskPopup.title}
+                    </span>
+                    {taskPopup.isMissionComplete && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded-full border border-emerald-200">
+                        +{level.xpReward} XP
+                      </span>
+                    )}
+                  </div>
                   <button
-                    onClick={() => setTaskPopup(null)}
-                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                    type="button"
+                    onClick={dismissPopup}
+                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"
+                    title="Close"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="text-sm font-black text-slate-900 leading-snug">
-                  {taskPopup.description}
-                </div>
-                {taskPopup.hint && (
-                  <div className="text-xs text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-xl border border-blue-200 font-medium">
-                    💡 Hint: {taskPopup.hint}
+
+                {taskPopup.completedTaskName && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50/90 px-2.5 py-1 rounded-xl border border-emerald-200 font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">Fulfilled: {taskPopup.completedTaskName}</span>
                   </div>
                 )}
+
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 leading-snug">
+                  {taskPopup.isMissionComplete ? (
+                    taskPopup.description
+                  ) : (
+                    <div>
+                      <span className="text-blue-600 font-black uppercase text-[10px] tracking-wider block mb-0.5">👉 Next Task:</span>
+                      {taskPopup.description}
+                    </div>
+                  )}
+                </div>
+
+                {taskPopup.hint && !taskPopup.isMissionComplete && (
+                  <div className="text-xs text-blue-800 bg-blue-50/90 px-2.5 py-1.5 rounded-xl border border-blue-200 font-medium flex items-start gap-1.5">
+                    <span className="shrink-0">💡</span>
+                    <span className="leading-snug">{taskPopup.hint}</span>
+                  </div>
+                )}
+
+                {/* Animated auto-advance / auto-dismiss countdown bar */}
+                <div className="pt-1.5 space-y-1">
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/80">
+                    <motion.div
+                      initial={{ width: '100%' }}
+                      animate={{ width: '0%' }}
+                      transition={{ duration: taskPopup.autoSeconds || 2.4, ease: 'linear' }}
+                      className={`h-full rounded-full ${
+                        taskPopup.isMissionComplete
+                          ? 'bg-gradient-to-r from-emerald-500 to-green-500'
+                          : 'bg-gradient-to-r from-amber-400 to-emerald-400'
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold px-0.5">
+                    <span>{taskPopup.isMissionComplete ? 'Auto-moving to next mission...' : 'Moving to next task automatically...'}</span>
+                    <span className="text-slate-500">Tap anywhere or start typing</span>
+                  </div>
+                </div>
+
                 <div className="pt-2">
                   {taskPopup.isMissionComplete ? (
                     <button
+                      type="button"
                       onClick={() => {
-                        setTaskPopup(null);
+                        dismissPopup();
                         if (level.levelNumber < 12) {
                           onGoToNextLevel();
                         } else if (onBackToMap) {
                           onBackToMap();
                         }
                       }}
-                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black text-xs uppercase tracking-wider shadow-xs hover:from-emerald-600 hover:to-green-700 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black text-xs uppercase tracking-wider shadow-sm hover:from-emerald-600 hover:to-green-700 cursor-pointer transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>Continue to Next Mission →</span>
+                      <span>Continue to Next Mission Now →</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
                     <button
-                      onClick={() => setTaskPopup(null)}
-                      className="w-full py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-yellow-400 text-amber-950 font-black text-xs uppercase tracking-wider shadow-xs cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                      type="button"
+                      onClick={dismissPopup}
+                      className="w-full py-2 px-3 rounded-xl bg-amber-400 hover:bg-yellow-400 text-amber-950 font-black text-xs uppercase tracking-wider shadow-sm cursor-pointer transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>Got it, let's type! 👉</span>
+                      <span>Type Next Command 👉</span>
                     </button>
                   )}
                 </div>
@@ -556,13 +740,20 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
                           : 'bg-slate-50/80 text-slate-700 border border-slate-200/70'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="shrink-0 text-base">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <span className="shrink-0 text-base mt-0.5">
                           {isDone ? '✅' : isNext ? '👉' : '🔘'}
                         </span>
-                        <span className={isDone ? 'line-through text-slate-400 font-normal truncate' : 'truncate'}>
-                          {obj.description}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className={isDone ? 'text-emerald-800 font-bold truncate text-xs sm:text-sm' : 'text-slate-900 font-bold truncate text-xs sm:text-sm'}>
+                            {isDone && obj.followUpDone ? `Done: ${obj.followUpDone}` : (obj.instruction || obj.description)}
+                          </div>
+                          {!isDone && obj.why && (
+                            <div className="text-[11px] text-amber-800/90 font-medium truncate mt-0.5">
+                              💡 Why: {obj.why}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <span
@@ -580,6 +771,66 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
                   );
                 })}
               </div>
+
+              {/* Dedicated Mission Capstone Project Card with Relative Learning Content */}
+              {level.capstone && (
+                <div className="rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/90 via-purple-50/40 to-white p-3.5 sm:p-4 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🎓</span>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-wider text-indigo-600 font-mono">
+                          Mission {level.levelNumber} Capstone Project
+                        </div>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 font-['Fredoka',sans-serif]">
+                          {level.capstone.title}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-100 border border-indigo-300 text-indigo-900 text-xs font-black shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 fill-indigo-400" />
+                      <span>+{level.capstone.bonusXp} XP</span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-700 font-bold leading-relaxed bg-white/80 p-2.5 rounded-xl border border-indigo-100">
+                    <span className="text-indigo-950 font-black">Mission Scenario: </span>
+                    {level.capstone.scenario}
+                  </div>
+
+                  {/* Relative Learning Content: How Commands Connect Together */}
+                  <div className="bg-indigo-950 text-indigo-100 rounded-xl p-3 text-xs leading-relaxed space-y-1 shadow-inner">
+                    <div className="font-black text-amber-300 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                      <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <span>How These Commands Connect Together:</span>
+                    </div>
+                    <p className="text-[11px] text-slate-200 font-medium">
+                      {level.capstone.learningTakeaway}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                    <div className="text-[11px] font-mono font-bold text-slate-600 flex items-center gap-1">
+                      <span>Target:</span>
+                      <code className="bg-slate-100 text-slate-900 px-2 py-0.5 rounded-lg border border-slate-300 font-black">
+                        {level.capstone.command}
+                      </code>
+                    </div>
+                    <div className="text-xs font-black">
+                      {completedObjs.includes(`obj_${level.levelNumber}_capstone`) ? (
+                        <span className="text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Capstone Complete!</span>
+                        </span>
+                      ) : (
+                        <span className="text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-lg border border-indigo-300">
+                          ⏳ In Progress
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Tux Hint Callout & Embedded Video Button */}
               <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-2.5 text-xs text-blue-900 flex items-start justify-between gap-2 flex-wrap">

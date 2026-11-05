@@ -270,6 +270,17 @@ export function App() {
     persistStudent(resetStudent);
   };
 
+  const handleClearLevels = () => {
+    updateProgress((prev) => ({
+      ...prev,
+      currentLevel: 1,
+      unlockedLevels: [1],
+      completedLevels: []
+    }));
+    setActiveTaskNumber(1);
+    setVfsState(createInitialVFS(currentStudent?.name, currentStudent?.email));
+  };
+
   // Prevent mobile window viewport jump or shift on keyboard / enter
   useEffect(() => {
     const handleScroll = () => {
@@ -337,6 +348,7 @@ export function App() {
                       setIsAuthModalOpen(true);
                     }}
                     onResetProgress={handleResetProgress}
+                    onClearLevels={handleClearLevels}
                     soundOn={soundOn}
                     onToggleSound={() => setSoundOn(toggleSound())}
                   />
@@ -358,6 +370,7 @@ export function App() {
               onBackToMap={() => setIsMobileTaskDrawerOpen(true)}
               onCompleteLevel={handleCompleteLevel}
               onGoToNextLevel={handleGoToNextTask}
+              onClearLevels={handleClearLevels}
               onResetMissionFiles={() => {
                 setVfsState(createInitialVFS(currentStudent?.name, currentStudent?.email));
               }}

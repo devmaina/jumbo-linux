@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, CheckCircle2, Play, Sparkles, ArrowRight, ArrowLeft, Trophy, Keyboard, AlertCircle } from 'lucide-react';
+import { Lock, CheckCircle2, Play, Sparkles, ArrowRight, ArrowLeft, Trophy, Keyboard, AlertCircle, RotateCcw } from 'lucide-react';
 import { LevelInfo, UserProgress, GradeBand } from '../types';
 import { Mascot, TuxSvg } from './Mascot';
 
@@ -12,6 +12,7 @@ interface LevelMapProps {
   onGoBackToHub: () => void;
   onGoToKeyboard: () => void;
   onOpenLeaderboard: () => void;
+  onClearLevels?: () => void;
 }
 
 const BAND_META: Record<GradeBand, { title: string; subtitle: string; badge: string; color: string }> = {
@@ -48,7 +49,8 @@ export const LevelMap: React.FC<LevelMapProps> = ({
   onSelectLevel,
   onGoBackToHub,
   onGoToKeyboard,
-  onOpenLeaderboard
+  onOpenLeaderboard,
+  onClearLevels
 }) => {
   const bands: GradeBand[] = ['elementary', 'middle', 'high_early', 'high_advanced'];
 

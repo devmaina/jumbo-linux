@@ -168,6 +168,11 @@ export const FolderMazeGame: React.FC<FolderMazeGameProps> = ({
       soundEffects.playLevelComplete();
       confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
       if (onEarnXp) onEarnXp(targetConfig.xp);
+      // Auto-advance to next maze after reaching vault
+      setTimeout(() => {
+        const nextDiff: ArcadeDifficulty = difficulty === 'easy' ? 'medium' : difficulty === 'medium' ? 'hard' : 'easy';
+        handleDifficultyChange(nextDiff);
+      }, 1500);
     }
   };
 
