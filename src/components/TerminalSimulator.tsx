@@ -28,6 +28,8 @@ interface TerminalSimulatorProps {
   completedObjectives?: string[];
   levels?: LevelInfo[];
   onToggleReveal?: () => void;
+  clearSignal?: number;
+  focusSignal?: number;
 }
 
 // Short, kid-friendly placeholders describing what each command does differently across all levels
@@ -156,7 +158,9 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   activeLevel,
   completedObjectives = [],
   levels = [],
-  onToggleReveal
+  onToggleReveal,
+  clearSignal = 0,
+  focusSignal = 0
 }) => {
   const promptName = useMemo(() => {
     const raw = studentName || (studentEmail ? studentEmail.split('@')[0] : '') || vfsState.currentUser || 'mainadev';
@@ -190,11 +194,38 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   const dynamicPlaceholder = getDynamicPlaceholder(currentPendingObjective);
   const [outputItems, setOutputItems] = useState<TerminalOutputItem[]>([]);
 
-  // Clear terminal output and input on level change so user starts fresh
+  const focusTerminalInput = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  // Clear terminal output and input on level change so user starts fresh and auto-focus keyboard
   useEffect(() => {
     setOutputItems([]);
     setInputVal('');
+    setTabSuggestions([]);
+    setHintSpell(null);
+    const t = setTimeout(focusTerminalInput, 50);
+    return () => clearTimeout(t);
   }, [activeLevel?.levelNumber]);
+
+  // Clear terminal immediately when triggered externally (e.g. clicking Next button)
+  useEffect(() => {
+    if (clearSignal > 0) {
+      setOutputItems([]);
+      setInputVal('');
+      setTabSuggestions([]);
+      setHintSpell(null);
+      setHistoryIndex(-1);
+      setDraftInput('');
+      focusTerminalInput();
+    }
+  }, [clearSignal]);
+
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [tabSuggestions, setTabSuggestions] = useState<string[]>([]);
@@ -219,14 +250,23 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
 
   const triggerTerminalFocus = () => {
     setHasClickedTerminal(true);
-    inputRef.current?.focus({ preventScroll: true });
+    focusTerminalInput();
     onTerminalClick?.();
   };
 
-  // Focus input automatically on mount or when clicked
+  // Focus input automatically immediately after page loads
   useEffect(() => {
-    inputRef.current?.focus({ preventScroll: true });
+    focusTerminalInput();
+    const timer = setTimeout(focusTerminalInput, 80);
+    return () => clearTimeout(timer);
   }, []);
+
+  // Auto-focus terminal input whenever a new task is activated or focusSignal increments
+  useEffect(() => {
+    focusTerminalInput();
+    const timer = setTimeout(focusTerminalInput, 50);
+    return () => clearTimeout(timer);
+  }, [currentPendingObjective?.id, focusSignal]);
 
   // Auto scroll terminal output internally without ever scrolling parent window or mobile viewport
   useEffect(() => {
@@ -651,6 +691,8 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
         keystrokeCount: currentKeystrokes
       });
     }
+
+    focusTerminalInput();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1000,6 +1042,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
           >
             <textarea
               ref={inputRef}
+              autoFocus
               rows={1}
               value={inputVal}
               onChange={(e) => {
@@ -1020,7 +1063,12 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
           </div>
 
           <button
-            onClick={() => handleRunCommand()}
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              handleRunCommand();
+              focusTerminalInput();
+            }}
             disabled={!inputVal.trim()}
             className="p-2 rounded-xl bg-[#4285F4] hover:bg-blue-600 disabled:opacity-40 text-white transition-all border border-blue-500 active:scale-95 cursor-pointer shrink-0 mt-0.5"
             title="Execute (Enter) • Shift+Enter to wrap"
