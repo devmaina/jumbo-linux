@@ -28,6 +28,7 @@ import { createInitialVFS, VFSState } from './utils/vfs';
 import { Terminal, ArrowLeft, Download } from 'lucide-react';
 import { saveStudentToFirestore } from './lib/firebase';
 import { FloatingVideoModal } from './components/FloatingVideoModal';
+import { Analytics } from '@vercel/analytics/react';
 import { isSoundEnabled, toggleSound } from './utils/sound';
 import { downloadBashAgent } from './utils/bashAgent';
 import { recordActiveDayStreak, getLocalDateString } from './utils/streak';
@@ -643,6 +644,9 @@ export function App() {
 
       {/* Floating Video Helper (Only floating on desktop/tablet, hidden on mobile) */}
       <FloatingVideoModal />
+
+      {/* Vercel Web Analytics */}
+      <Analytics />
     </div>
   );
 }
