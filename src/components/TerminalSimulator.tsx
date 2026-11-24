@@ -3,6 +3,8 @@ import { Terminal, Send, HelpCircle, CornerDownLeft, Sparkles, Copy, Check, Volu
 import { TerminalOutputItem, LevelInfo } from '../types';
 import { VFSState, executeCommand, computeTabCompletion } from '../utils/vfs';
 import { isSoundEnabled, toggleSound, playTabCompletionSound } from '../utils/sound';
+import { askTuxHybridAI } from '../lib/firebaseAI';
+import { AIInferenceBadge } from './AIInferenceBadge';
 
 export interface CommandExecutionDetails {
   clickedTerminal: boolean;
@@ -189,6 +191,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   const [keystrokeCount, setKeystrokeCount] = useState(0);
   const [hasTypedManually, setHasTypedManually] = useState(false);
   const [hintSpell, setHintSpell] = useState<string | null>(null);
+  const [isAskingAI, setIsAskingAI] = useState(false);
   const currentPendingObjective = activeLevel?.objectives.find(o => !completedObjectives.includes(o.id));
   const lastCompletedObjective = activeLevel?.objectives.filter(o => completedObjectives.includes(o.id)).slice(-1)[0];
   const dynamicPlaceholder = getDynamicPlaceholder(currentPendingObjective);
@@ -422,7 +425,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
     if ((lowerCmd === 'hint' || lowerCmd === 'hints') && activeLevel) {
       const nextPending = activeLevel.objectives.find(o => !completedObjectives.includes(o.id));
       const text = nextPending 
-        ? `💡 Tux's Hint for this step:\n-> ${nextPending.hint}\n${activeLevel.mascotTip}`
+        ? `💡 Tux's Hint for this step:\n-> ${nextPending.hint}\n${activeLevel.mascotTip}\n💬 Need more help? Type 'ask <your question>' or click ✨ Ask Tux!`
         : `🎉 All objectives in this mission are completed! Type 'missions' to see other levels.`;
 
       setOutputItems(prev => [...prev, cmdItem, {
@@ -438,6 +441,38 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
       setTabSuggestions([]);
       if (onCommandExecuted) {
         onCommandExecuted(cmd, ['hint_viewed'], {
+          clickedTerminal: hasClickedTerminal,
+          typedManually: isManual,
+          keystrokeCount: currentKeystrokes
+        });
+      }
+      return;
+    }
+
+    if (
+      lowerCmd === 'ask' ||
+      lowerCmd.startsWith('ask ') ||
+      lowerCmd === 'tux' ||
+      lowerCmd.startsWith('tux ') ||
+      lowerCmd === 'explain' ||
+      lowerCmd.startsWith('explain ')
+    ) {
+      const queryBody = cmd.replace(/^(ask|tux|explain)\s*/i, '').trim();
+      const question = queryBody
+        ? (lowerCmd.startsWith('explain') ? `Explain the Linux command "${queryBody}" simply for a student.` : queryBody)
+        : currentPendingObjective
+        ? `Explain this step simply: ${currentPendingObjective.instruction || currentPendingObjective.description}`
+        : 'Give me a friendly Linux terminal tip!';
+
+      void triggerTuxAI(question, cmdItem);
+      setInputVal('');
+      setHistoryIndex(-1);
+      setKeystrokeCount(0);
+      setHasTypedManually(false);
+      setHintSpell(null);
+      setTabSuggestions([]);
+      if (onCommandExecuted) {
+        onCommandExecuted(cmd, ['ai_assistant_queried'], {
           clickedTerminal: hasClickedTerminal,
           typedManually: isManual,
           keystrokeCount: currentKeystrokes
@@ -695,6 +730,55 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
     focusTerminalInput();
   };
 
+  const triggerTuxAI = async (question: string, existingCmdItem?: TerminalOutputItem) => {
+    if (isAskingAI) return;
+    setIsAskingAI(true);
+    const pendingId = `ai_${Date.now()}_${Math.random()}`;
+    const cmdEcho: TerminalOutputItem = existingCmdItem || {
+      id: `cmd_ai_${Date.now()}_${Math.random()}`,
+      type: 'command',
+      text: `ask ${question}`,
+      path: vfsState.currentPath,
+    };
+
+    setOutputItems(prev => [
+      ...prev,
+      cmdEcho,
+      {
+        id: pendingId,
+        type: 'system',
+        text: '🐧 Tux is thinking...',
+      },
+    ]);
+
+    try {
+      const res = await askTuxHybridAI(question, {
+        levelNumber: activeLevel?.levelNumber,
+        levelTitle: activeLevel?.title,
+        currentObjective: currentPendingObjective?.instruction || currentPendingObjective?.description,
+        objectiveHint: currentPendingObjective?.hint,
+        mascotTip: activeLevel?.mascotTip,
+        currentPath: vfsState.currentPath,
+        lastCommand: commandHistory[commandHistory.length - 1],
+      });
+
+      setOutputItems(prev =>
+        prev.map(item =>
+          item.id === pendingId
+            ? {
+                ...item,
+                text: `🐧 ${res.text}`,
+                aiSource: res.source,
+              }
+            : item
+        )
+      );
+    } finally {
+      setIsAskingAI(false);
+      focusTerminalInput();
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Detect real typing
     if (
@@ -948,9 +1032,26 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
               </>
             )}
           </div>
-          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-emerald-400 shrink-0 self-end xs:self-auto">
-            {completedObjectives.length}/{activeLevel.objectives.length} Done
-          </span>
+          <div className="flex items-center gap-2 shrink-0 self-end xs:self-auto">
+            <button
+              type="button"
+              disabled={isAskingAI}
+              onClick={() => {
+                const goalText = currentPendingObjective
+                  ? `Explain "${currentPendingObjective.commandToType || currentPendingObjective.instruction || currentPendingObjective.description}" simply`
+                  : `Summarize what I learned in Mission ${activeLevel.levelNumber}`;
+                void triggerTuxAI(goalText);
+              }}
+              title="Ask Tux AI (Prefers On-Device Gemini Nano, falls back to Cloud Gemini)"
+              className="px-2 py-0.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/35 disabled:opacity-50 text-indigo-200 border border-indigo-400/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Sparkles className="w-2.5 h-2.5 text-indigo-300" />
+              <span>{isAskingAI ? 'Thinking...' : 'Ask Tux'}</span>
+            </button>
+            <span className="text-[10px] sm:text-[11px] font-mono font-bold text-emerald-400">
+              {completedObjectives.length}/{activeLevel.objectives.length} Done
+            </span>
+          </div>
         </div>
       )}
 
@@ -983,6 +1084,11 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
                   : 'border-slate-600 text-slate-200'
               }`}
             >
+              {item.aiSource && (
+                <div className="flex items-center gap-2 mb-1 pr-7">
+                  <AIInferenceBadge source={item.aiSource} variant="dark" />
+                </div>
+              )}
               {item.text}
               <button
                 onClick={(e) => {

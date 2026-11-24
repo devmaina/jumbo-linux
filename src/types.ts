@@ -107,6 +107,7 @@ export interface TerminalOutputItem {
   type: 'command' | 'output' | 'error' | 'success' | 'system';
   text: string;
   path?: string;
+  aiSource?: 'on_device' | 'cloud_fallback' | 'local_offline';
 }
 
 export interface LeaderboardEntry {

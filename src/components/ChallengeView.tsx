@@ -11,6 +11,8 @@ import { Mascot, TuxSvg, JumboSvg } from './Mascot';
 import { TerminalSimulator, CommandExecutionDetails } from './TerminalSimulator';
 import { VFSState } from '../utils/vfs';
 import { playCommandSuccessSound, playLevelCompleteSound } from '../utils/sound';
+import { askTuxHybridAI, HybridAIResult } from '../lib/firebaseAI';
+import { AIInferenceBadge } from './AIInferenceBadge';
 
 interface ChallengeViewProps {
   level: LevelInfo;
@@ -86,6 +88,8 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
   } | null>(null);
   const [terminalClearSignal, setTerminalClearSignal] = useState(0);
   const [terminalFocusSignal, setTerminalFocusSignal] = useState(0);
+  const [tuxAiReply, setTuxAiReply] = useState<HybridAIResult | null>(null);
+  const [isAskingTuxGuide, setIsAskingTuxGuide] = useState(false);
   const taskPopupTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const allLevelsList = levels && levels.length > 0 ? levels : [level];
@@ -142,6 +146,7 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
     setIsLearnMenuOpen(false);
     setActiveStepTab('task');
     setTaskPopup(null);
+    setTuxAiReply(null);
     setTerminalFocusSignal(prev => prev + 1);
   }, [level.levelNumber]);
 
@@ -829,31 +834,77 @@ export const ChallengeView: React.FC<ChallengeViewProps> = ({
               )}
 
               {/* Tux Hint Callout & Embedded Video Button */}
-              <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-2.5 text-xs text-blue-900 flex items-start justify-between gap-2 flex-wrap">
-                <div className="flex items-start gap-2 min-w-0 flex-1">
-                  <span className="text-base shrink-0">💡</span>
-                  <div className="space-y-0.5">
-                    <span className="font-bold">Tux Guide: </span>
-                    <span>{level.mascotTip}</span>
+              <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-2.5 text-xs text-blue-900 space-y-2">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    <span className="text-base shrink-0">💡</span>
+                    <div className="space-y-0.5">
+                      <span className="font-bold">Tux Guide: </span>
+                      <span>{level.mascotTip}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                    <button
+                      type="button"
+                      disabled={isAskingTuxGuide}
+                      onClick={async () => {
+                        setIsAskingTuxGuide(true);
+                        try {
+                          const nextPending = level.objectives.find(o => !completedObjs.includes(o.id));
+                          const prompt = nextPending
+                            ? `Explain "${nextPending.commandToType || nextPending.instruction || nextPending.description}" in simple terms for a K-12 student.`
+                            : `Summarize the key Linux skill in Mission ${level.levelNumber}: ${level.title}.`;
+                          const res = await askTuxHybridAI(prompt, {
+                            levelNumber: level.levelNumber,
+                            levelTitle: level.title,
+                            currentObjective: nextPending?.instruction || nextPending?.description,
+                            objectiveHint: nextPending?.hint,
+                            mascotTip: level.mascotTip,
+                            currentPath: vfsState.currentPath,
+                          });
+                          setTuxAiReply(res);
+                        } finally {
+                          setIsAskingTuxGuide(false);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      title="Ask Tux AI using Hybrid Inference (On-Device first, Cloud Gemini fallback)"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isAskingTuxGuide ? 'Thinking...' : 'Ask Tux AI'}</span>
+                    </button>
+
+                    {/* Embedded Video Quick Launch Button in Objective Dropdown */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenVideos) {
+                          onOpenVideos();
+                        } else {
+                          window.dispatchEvent(new CustomEvent('open-jumbo-videos'));
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      title="Watch YouTube video tutorial for this mission"
+                    >
+                      <Tv className="w-3.5 h-3.5" />
+                      <span>Watch Video Lesson</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Embedded Video Quick Launch Button in Objective Dropdown */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenVideos) {
-                      onOpenVideos();
-                    } else {
-                      window.dispatchEvent(new CustomEvent('open-jumbo-videos'));
-                    }
-                  }}
-                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 shrink-0 self-end sm:self-center"
-                  title="Watch YouTube video tutorial for this mission"
-                >
-                  <Tv className="w-3.5 h-3.5" />
-                  <span>Watch Video Lesson</span>
-                </button>
+                {tuxAiReply && (
+                  <div className="bg-white/90 border border-blue-200 rounded-lg p-2.5 text-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-[11px] font-black text-indigo-700">🐧 Tux AI Mentor</span>
+                      <AIInferenceBadge source={tuxAiReply.source} variant="light" />
+                    </div>
+                    <p className="text-xs font-medium leading-relaxed text-slate-700 whitespace-pre-wrap">
+                      {tuxAiReply.text}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
